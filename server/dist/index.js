@@ -8,11 +8,13 @@ const mongoose_1 = __importDefault(require("mongoose"));
 const cors_1 = __importDefault(require("cors"));
 const user_model_js_1 = __importDefault(require("./models/user.model.js"));
 const express_1 = __importDefault(require("express"));
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 // Setting up connections and middleware
 mongoose_1.default.connect('mongodb://localhost:27017/MernTest');
 const app = (0, express_1.default)();
 const port = 3000;
-app.use((0, cors_1.default)());
+// app.use(cors());
+app.use((0, cors_1.default)({ origin: 'http://localhost:5173' }));
 app.use(express_1.default.json());
 // ----------------------- HELPER FUNCTIONS ------------------------  //
 // verifies Basic Auth credentials then returns
@@ -26,11 +28,17 @@ const checkBasicAuth = (req, res) => {
     const credentials = atob(encodedCredentials).split(':');
     return { name: credentials[0], password: credentials[1] };
 };
+// Hashes password using bcrypt, with salt value 10
 const hashPassword = async (password, saltRounds = 10) => {
     return bcrypt_1.default.hash(password, saltRounds);
 };
-console.log('SERVER STARTING');
+const secretKey = 'sekret';
+// Creates JWT token
+const generateToken = (payload) => {
+    return jsonwebtoken_1.default.sign(payload, secretKey, { expiresIn: '1h' }); // Set the token expiration time (e.g., 1 hour)
+};
 // ------------------------- API ENDPOINTS -------------------------  //
+console.log('SERVER STARTING');
 app.get('/', (req, res) => {
     res.send('working');
 });
@@ -65,17 +73,24 @@ app.post('/login', async (req, res) => {
             __v: query[0]['__v'],
         };
         const passwordMatches = await bcrypt_1.default.compare(validatedData['password'], user['password']);
-        if (passwordMatches) {
-            return res.status(200).json({ msg: 'success', user: user });
-        }
-        else {
+        if (!passwordMatches) {
             return res.status(404).json({ msg: 'user not found' });
         }
+        const token = generateToken(user);
+        return res
+            .status(200)
+            .json({ msg: 'success', user: user });
     }
     catch (error) {
         console.log(error);
         return res.status(500).json({ msg: 'server error' });
     }
+});
+app.get('/check', (req, res) => {
+    console.log('working');
+    return res
+        .status(200)
+        .json({ msg: 'working!!' });
 });
 // ------------------------------ END ------------------------------  //
 app.listen(port, () => {

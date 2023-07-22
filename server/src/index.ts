@@ -4,6 +4,10 @@ import cors from 'cors';
 import UserDB from './models/user.model.js';
 import express, {Request, Response} from 'express';
 import User from './interfaces/User.js'
+import jwt from 'jsonwebtoken';
+
+
+
 
 // Setting up connections and middleware
 
@@ -11,7 +15,8 @@ mongoose.connect('mongodb://localhost:27017/MernTest');
 const app = express();
 const port = 3000;
 
-app.use(cors());
+// app.use(cors());
+app.use(cors({ origin: 'http://localhost:5173' }));
 app.use(express.json());
 
 
@@ -33,14 +38,22 @@ const checkBasicAuth = (req: Request, res: Response): User => {
 	return { name: credentials[0] , password: credentials[1] }
 }
 
+// Hashes password using bcrypt, with salt value 10
 const hashPassword = async (password: string, saltRounds: number = 10): Promise<string> => {
 	return bcrypt.hash(password, saltRounds);
 }
 
-console.log('SERVER STARTING');
+const secretKey: string = 'sekret';
+
+// Creates JWT token
+const generateToken = (payload: User): any => {
+	return jwt.sign(payload, secretKey, { expiresIn: '1h' }); // Set the token expiration time (e.g., 1 hour)
+};
+
 
 
 // ------------------------- API ENDPOINTS -------------------------  //
+console.log('SERVER STARTING');
 
 
 app.get('/', (req: Request, res: Response) => {
@@ -84,16 +97,27 @@ app.post('/login', async (req: Request, res: Response) => {
 			user['password']
 			);
 
-		if (passwordMatches) {
-			return res.status(200).json({msg: 'success', user:user});
-		} else {
+		if (!passwordMatches) {
 			return res.status(404).json({ msg: 'user not found' });
 		}
+
+		const token: any = generateToken(user)
+		return res
+		.status(200)
+		.json({msg: 'success', user:user});
 	} catch (error) {
+		
 		console.log(error);
 		return res.status(500).json({ msg: 'server error' });
 	}
 });
+
+app.get('/check', (req: Request, res: Response) => {
+	console.log('working')
+	return res
+	.status(200)
+	.json({msg:'working!!'})
+})
 
 // ------------------------------ END ------------------------------  //
 
