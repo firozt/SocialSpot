@@ -1,6 +1,13 @@
 {
     "compilerOptions": {
-        "target": "es6",
-        "module": "commonjs"
-    }
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
+        "target": "ES2020",
+        "sourceMap": true,
+        "outDir": "dist",
+        "esModuleInterop": true,
+        "rootDir": "./src",
+
+    },
+    "include": ["src/**/*"]
 }

@@ -2,14 +2,18 @@
   "name": "server",
   "version": "1.0.0",
   "description": "",
-  "main": "server.mts",
+  "main": "dist/index.js",
   "scripts": {
-    "dev": "nodemon server.mts"
+    "build": "tsc",
+    "start": "ts-node-esm src/index.ts",
+    "dev": "tsc && nodemon dist/server.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@types/bcrypt": "^5.0.0",
     "atob": "^2.1.2",
+    "bcrypt": "^5.1.0",
     "buffer": "^6.0.3",
     "cors": "^2.8.5",
     "express": "^4.18.2",
