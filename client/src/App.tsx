@@ -4,7 +4,6 @@ import {
   Routes, 
   // Navigate,
 } from 'react-router-dom';
-
 import Login from './Pages/Login';
 import Register from './Pages/Register';
 import UserLanding from './Pages/UserLanding';

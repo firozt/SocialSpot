@@ -1,19 +1,23 @@
-import axios from 'axios'
+import axios, { AxiosResponse } from 'axios'
 import React, { ChangeEvent, FormEvent, useState } from 'react'
 import { useNavigate } from 'react-router'
+import LoginResponse from '../interfaces/LoginResponse'
 type Props = {}
+
+
 
 const Login: React.FC<Props> = ({}) => {
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   const navigate = useNavigate();
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const credentials = `${username}:${password}`;
     const encodedCredentials = btoa(credentials);
     try {
-      const response = await axios.post(
+      const response: AxiosResponse<LoginResponse> = await axios.post(
         'http://localhost:3000/login',
         {},
         {
@@ -24,7 +28,10 @@ const Login: React.FC<Props> = ({}) => {
         }
       );
       console.log(response.data)
-      setMessage(`successfull login, hello ${response.data[0].name}`)
+      setMessage(`successfull login, hello ${response.data.user.name}`)
+      localStorage.setItem('token',response.data.token)
+      navigate('/user')
+      
     } catch (error: any) {
       if (error?.response?.status == 404) {
         setMessage('invalid details, user not found')
@@ -35,6 +42,7 @@ const Login: React.FC<Props> = ({}) => {
       }
     }
   }
+
 
   return (
     <div id='login' className='card'>

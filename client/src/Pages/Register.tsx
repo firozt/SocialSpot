@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 
 
-
 type Props = {}
 
 const Register: React.FC<Props>= ({}) => {
@@ -30,17 +29,16 @@ const Register: React.FC<Props>= ({}) => {
         }
       );
       console.log(response.data)
+      navigate('/login')
     } catch (error: any) {
-      if (error?.response?.status == 404) {
-        setMess
-      }
+
       console.error(error)
     }
   }
   return (
     <div id='register' className='card'>
-      {message || 'enter details'}
       <h1>Register</h1>
+      {message || 'enter details'}
       <form onSubmit={(e: FormEvent<HTMLFormElement>) => handleSubmit(e)}>
         <input 
         type='text' 
