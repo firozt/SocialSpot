@@ -1,20 +1,19 @@
-import axios, { AxiosResponse } from 'axios'
 import React, { ChangeEvent, FormEvent, useState } from 'react'
-import { useNavigate } from 'react-router'
-import LoginResponse from '../interfaces/LoginResponse'
+import LoginResponse from '../../interfaces/LoginResponse';
+import axios, { AxiosResponse } from 'axios';
+import { useNavigate } from 'react-router-dom';
+
 type Props = {}
 
-
-
 const Login: React.FC<Props> = ({}) => {
-  const [username, setUsername] = useState<string>('');
+	const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [message, setMessage] = useState<string>('');
-  const navigate = useNavigate();
+	const navigate = useNavigate();
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const credentials = `${username}:${password}`;
+    const credentials = `${email}:${password}`;
     const encodedCredentials = btoa(credentials);
     try {
       const response: AxiosResponse<LoginResponse> = await axios.post(
@@ -43,16 +42,15 @@ const Login: React.FC<Props> = ({}) => {
     }
   }
 
-
   return (
-    <div id='login' className='card'>
-      <h1>Login</h1>
+    <div>
+			<h1>Login</h1>
       { message || 'enter details'}
       <form onSubmit={(e: FormEvent<HTMLFormElement>) => handleSubmit(e)}>
         <input 
         type='text' 
-        placeholder='username' 
-        onChange={(e: ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}/> <br/>
+        placeholder='email' 
+        onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}/> <br/>
         <input 
         type='password' 
         placeholder='password' 
@@ -60,7 +58,7 @@ const Login: React.FC<Props> = ({}) => {
         <button>Submit</button>
       </form>
       <button onClick={() => navigate(-1)}>Back</button>
-    </div>
+		</div>
   )
 }
 

@@ -7,7 +7,7 @@ type Props = {}
 
 const Register: React.FC<Props>= ({}) => {
 
-  const [username, setUsername] = useState<string>('');
+  const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   const navigate = useNavigate()
@@ -15,7 +15,7 @@ const Register: React.FC<Props>= ({}) => {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const credentials = `${username}:${password}`;
+    const credentials = `${email}:${password}`;
     const encodedCredentials = btoa(credentials);
     try {
       const response = await axios.post(
@@ -29,6 +29,7 @@ const Register: React.FC<Props>= ({}) => {
         }
       );
       console.log(response.data)
+      alert('successful, please login')
       navigate('/login')
     } catch (error: any) {
 
@@ -42,8 +43,8 @@ const Register: React.FC<Props>= ({}) => {
       <form onSubmit={(e: FormEvent<HTMLFormElement>) => handleSubmit(e)}>
         <input 
         type='text' 
-        placeholder='username' 
-        onChange={(e: ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}/> <br/>
+        placeholder='email' 
+        onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}/> <br/>
         <input 
         type='password' 
         placeholder='password' 

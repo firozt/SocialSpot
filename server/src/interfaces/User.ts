@@ -1,9 +1,12 @@
 import mongoose, { Document } from 'mongoose';
 
 interface User {
-    name: string,
-    password: string,
-    _id?: mongoose.Types.ObjectId;
+    username: string,
+    _id: mongoose.Types.ObjectId;
+    
+    email?: string,
+    password?: string,
+    following?: string[],
     __v?: number,
 }
 

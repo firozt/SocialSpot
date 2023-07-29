@@ -4,10 +4,10 @@ import {
   Routes, 
   // Navigate,
 } from 'react-router-dom';
-import Login from './Pages/Login';
-import Register from './Pages/Register';
+import LoginPage from './Pages/LoginPage';
 import UserLanding from './Pages/UserLanding';
 import Homepage from './Pages/Homepage';
+import RegisterPage from './Pages/RegisterPage';
 
 const App = () => {
 
@@ -17,8 +17,8 @@ const App = () => {
         <Routes>
           <Route path="/" element={<Homepage />} />
           <Route path="/user" element={<UserLanding />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/login" element={<LoginPage />} />
             
         </Routes>
       </BrowserRouter>
