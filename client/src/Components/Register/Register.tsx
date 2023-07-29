@@ -1,6 +1,7 @@
 import React, { ChangeEvent, FormEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import { Box, Button, Center, Heading, Input, InputGroup, InputRightElement, Text } from '@chakra-ui/react'
 
 
 type Props = {}
@@ -10,11 +11,12 @@ const Register: React.FC<Props>= ({}) => {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [message, setMessage] = useState<string>('');
+  const [show, setShow] = React.useState(false)
+
   const navigate = useNavigate()
 
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+  const handleSubmit = async () => {
     const credentials = `${email}:${password}`;
     const encodedCredentials = btoa(credentials);
     try {
@@ -36,23 +38,62 @@ const Register: React.FC<Props>= ({}) => {
       console.error(error)
     }
   }
+
+  const handleClick = () => setShow(!show)
+
   return (
-    <div id='register' className='card'>
-      <h1>Register</h1>
-      {message || 'enter details'}
-      <form onSubmit={(e: FormEvent<HTMLFormElement>) => handleSubmit(e)}>
-        <input 
+    <Box 
+    bgColor={'gray.100'}
+    border={'1px solid black'}
+    borderRadius={'10px'}
+    padding={10}
+    w={'min(600px,95vw)'}
+    margin={'auto'}
+    my={10}>
+			<Heading fontSize={'5xl'}>Register</Heading>
+      <Text 
+      size={'lg'}
+      m={2}>
+        {message || 'enter details'}
+      </Text>
+      <form>
+        <Input 
         type='text' 
         placeholder='email' 
         onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}/> <br/>
-        <input 
-        type='password' 
-        placeholder='password' 
-        onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}/> <br/>        
-        <button>Submit</button>
+        <InputGroup my={1} size='md'>
+          <Input
+            pr='4.5rem'
+            type={show ? 'text' : 'password'}
+            placeholder='Enter password'
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+          />
+          <InputRightElement width='4.5rem'>
+            <Button h='1.75rem' size='sm' onClick={handleClick}>
+            {show ? 'Hide' : 'Show'}
+            </Button>
+          </InputRightElement>
+        </InputGroup> 
+        <Box>
+          <Button 
+          onClick={() => handleSubmit()} 
+          width={'100%'}
+          my={1}>
+            Submit
+          </Button>
+          <Button 
+          onClick={() => navigate('/')}
+          width={'100%'}
+          my={1}>
+            Back
+          </Button>
+        </Box>
+        <Text mt={2}
+        color={'gray'}>
+          Already have an account? login by clicking <i onClick={() => navigate('/login')}>here</i>
+        </Text>
       </form>
-      <button onClick={() => navigate(-1)}>Back</button>
-    </div>
+    </Box>
   )
 }
 

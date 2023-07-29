@@ -1,7 +1,29 @@
 * {
     font-family: Arial, Helvetica, sans-serif;
 }
-
+body {
+    background-color: rgb(92, 76, 180) !important;
+}
 i {
     cursor: pointer;
+    color: rgb(177, 200, 213);
+}
+
+button, input {
+    border-radius: 0px !important;
+}
+
+button {
+    background-color: rgb(92, 76, 180) !important;
+    color: white !important;
+}
+
+button:hover {
+    background-color: rgb(168, 157, 234) !important;
+
+}
+
+table, td {
+    padding: 0 !important;
+    border: none !important;
 }
