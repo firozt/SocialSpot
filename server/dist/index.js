@@ -97,10 +97,68 @@ const usernameToUserId = async (username) => {
     }
     return query[0]['_id'];
 };
+const getFollowing = async (userId, res) => {
+    let query;
+    try {
+        // find user making query
+        query = await user_model_js_1.default.find({ _id: userId });
+    }
+    catch (error) {
+        console.error(error);
+        return res
+            .status(500)
+            .json({ msg: 'unable to fetch user database' });
+    }
+    if (query.length === 0) {
+        return res
+            .status(404)
+            .json({ msg: 'user not found' });
+    }
+    // load user into var
+    const user = {
+        username: query[0]['username'],
+        _id: query[0]['_id'],
+        following: query[0]['following'],
+    };
+    const followingList = [];
+    for (const userId of user['following']) {
+        const username = await userIdToUsername(userId);
+        followingList.push({ username: username, _id: user['_id'] });
+    }
+    return followingList;
+};
 // ------------------------- API ENDPOINTS -------------------------  //
 console.log('SERVER STARTING');
 app.get('/', (req, res) => {
     res.send('working');
+});
+app.post('/set_name/:username', authenticateToken, async (req, res) => {
+    const userid = req.user['_id'];
+    console.log(req.params.username);
+    try {
+        const newUser = await user_model_js_1.default.findByIdAndUpdate(userid, { username: req.params.username }, { new: true });
+        if (!newUser) {
+            return res
+                .status(401)
+                .json({ msg: 'cant find user' });
+        }
+        console.log(newUser);
+        const userToken = {
+            _id: newUser['_id'],
+            username: newUser['username'],
+            email: newUser['email'],
+        };
+        const newToken = generateToken(userToken);
+        return res
+            .status(200)
+            .json({ msg: 'success', token: newToken });
+    }
+    catch (error) {
+        console.error(error);
+        return res
+            .status(500)
+            .json({ msg: 'unable to lookup users collection' });
+    }
 });
 app.post('/register', async (req, res) => {
     try {
@@ -139,12 +197,10 @@ app.post('/login', async (req, res) => {
     const user = {
         email: query[0]['email'],
         username: query[0]['username'],
-        password: query[0]['password'],
         _id: query[0]['_id'],
-        __v: query[0]['__v'],
     };
     // compare hashed pw 
-    const passwordMatches = await bcrypt_1.default.compare(validatedData['password'], user['password']);
+    const passwordMatches = await bcrypt_1.default.compare(validatedData['password'], query[0]['password']);
     if (!passwordMatches) {
         return res.status(404).json({ msg: 'user not found (pw)' });
     }
@@ -177,6 +233,7 @@ app.post('/follow/:username', authenticateToken, async (req, res) => {
             .status(404)
             .json({ msg: 'user not found' });
     }
+    // check if user exists
     if (query.length === 0) {
         return res.status(404).json({ msg: 'user not found' });
     }
@@ -187,7 +244,7 @@ app.post('/follow/:username', authenticateToken, async (req, res) => {
     };
     try {
         // add userid of username to following list
-        await user_model_js_1.default.findOneAndUpdate({ _id: req.user['_id'] }, { $addToSet: { following: friend['_id'] } } // push friend id to friends
+        await user_model_js_1.default.findOneAndUpdate({ _id: req.user['_id'] }, { $addToSet: { following: friend['_id'] } } // push friend id to following list
         );
     }
     catch (error) {
@@ -218,37 +275,41 @@ app.post('/unfollow/:username', authenticateToken, async (req, res) => {
     }
 });
 app.get('/following', authenticateToken, async (req, res) => {
-    const userId = req.user['_id'];
-    let query;
+    const followingList = await getFollowing(req.user['_id'], res);
+    return res
+        .status(200)
+        .json({ msg: 'success', following: followingList });
+});
+app.get('/search_users/:query', authenticateToken, async (req, res) => {
+    const query = req.params.query;
+    let queryOutput;
+    // query all where 'query' exist inside name (SQL's LIKE keyword)
     try {
-        // find user making query
-        query = await user_model_js_1.default.find({ _id: userId });
+        queryOutput = await user_model_js_1.default.find({ username: { $regex: new RegExp(query, 'i') } }, // 'i' means case insesetive
+        { username: 1, _id: 1 }); // only select username and _id
     }
     catch (error) {
         console.error(error);
         return res
             .status(500)
-            .json({ msg: 'unable to fetch user database' });
+            .json({ msg: 'could not fetch users tablwe' });
     }
-    if (query.length === 0) {
-        return res
-            .status(404)
-            .json({ msg: 'user not found' });
-    }
-    // load user into var
-    const user = {
-        username: query[0]['username'],
-        _id: query[0]['_id'],
-        following: query[0]['following'],
-    };
-    const followingList = [];
-    for (const userId of user['following']) {
-        const username = await userIdToUsername(userId);
-        followingList.push(username);
-    }
+    // parse only names and id
+    queryOutput.map((item, index) => {
+        return {
+            username: item['username'],
+            _id: item['_id'],
+        };
+    });
+    // get users following data, currently stored as ids, translate to usernames
+    const followingList = await getFollowing(req.user['_id'], res);
+    const notFollowing = queryOutput.filter((item1) => {
+        return (!followingList.some((item2) => item1.username === item2.username) &&
+            item1.username !== req.user.username);
+    });
     return res
         .status(200)
-        .json({ msg: 'succes', following: followingList });
+        .json({ msg: 'success', query: notFollowing });
 });
 // ---------------------------- SPOTIFY ----------------------------  //
 app.get('/callback', (req, res) => {

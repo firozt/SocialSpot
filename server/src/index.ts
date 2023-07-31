@@ -8,6 +8,7 @@ import jwt from 'jsonwebtoken';
 
 import dotenv from 'dotenv';
 import path from 'path'
+import axios from 'axios';
 dotenv.config()
 const envPath = path.resolve(__dirname, '../../.env'); // Adjust the path as needed
 
@@ -114,6 +115,39 @@ const usernameToUserId = async (username: string): Promise<string> => {
 	return query[0]['_id']
 }
 
+const getFollowing = async (userId: string, res: Response): Promise<User[]> => {
+	let query: User[];
+	try {
+		// find user making query
+		query = await UserDB.find({_id: userId})
+	} catch (error) {
+		console.error(error)
+		return res
+			.status(500)
+			.json({msg:'unable to fetch user database'})
+	}
+
+	if (query.length === 0) {
+		return res
+			.status(404)
+			.json({msg:'user not found'})
+	}
+	// load user into var
+	const user: User = {
+		username: query[0]['username'],
+		_id: query[0]['_id'],
+		following: query[0]['following'],
+	}
+		
+	const followingList: User[] = []
+
+	for (const userId of user['following']) {
+		const username = await userIdToUsername(userId);
+		followingList.push({username: username, _id: user['_id']});
+	}
+	return followingList
+}
+
 
 // ------------------------- API ENDPOINTS -------------------------  //
 console.log('SERVER STARTING');
@@ -122,6 +156,38 @@ console.log('SERVER STARTING');
 app.get('/', (req: Request, res: Response) => {
 	res.send('working');
 });
+
+app.post('/set_name/:username', authenticateToken , async (req: Request, res: Response) => {
+	const userid: string = req.user['_id'];
+	console.log(req.params.username)
+	try {
+		const newUser: User = await UserDB.findByIdAndUpdate(
+			userid,
+			{username: req.params.username},
+			{new: true})
+		if (!newUser) {
+			return res
+				.status(401)
+				.json({msg:'cant find user'})
+		}
+		console.log(newUser)
+		const userToken: User = {
+			_id: newUser['_id'],
+			username: newUser['username'],
+			email: newUser['email'],
+		}
+		const newToken: string = generateToken(userToken)
+		
+		return res
+			.status(200)
+			.json({msg:'success',token:newToken})
+	} catch (error: any) {
+		console.error(error)
+		return res
+			.status(500)
+			.json({msg:'unable to lookup users collection'})
+	}
+}) 
 
 app.post('/register', async (req: Request, res: Response) => {
 	try {
@@ -160,14 +226,12 @@ app.post('/login', async (req: Request, res: Response) => {
 	const user: User = {
 		email: query[0]['email'],
 		username: query[0]['username'], 
-		password: query[0]['password'],
 		_id: query[0]['_id'],
-		__v: query[0]['__v'],
 	};
 	// compare hashed pw 
 	const passwordMatches = await bcrypt.compare(
 		validatedData['password'], 
-		user['password']
+		query[0]['password']
 		);
 
 	if (!passwordMatches) {
@@ -205,7 +269,7 @@ app.post('/follow/:username', authenticateToken ,async (req: Request, res: Respo
 			.status(404)
 			.json({msg:'user not found'})
 	}
-
+	// check if user exists
 	if (query.length === 0) {
 		return res.status(404).json({ msg: 'user not found' });
 	}
@@ -218,7 +282,7 @@ app.post('/follow/:username', authenticateToken ,async (req: Request, res: Respo
 		// add userid of username to following list
 		await UserDB.findOneAndUpdate(
 			{ _id: req.user['_id'] },
-			{ $addToSet: { following: friend['_id'] } } // push friend id to friends
+			{ $addToSet: { following: friend['_id'] } } // push friend id to following list
 		)
 	} catch (error) {
 		return res
@@ -253,39 +317,50 @@ app.post('/unfollow/:username', authenticateToken , async (req: Request, res: Re
 })
 
 app.get('/following', authenticateToken , async (req: Request, res: Response) => {
-	const userId: string = req.user['_id']
-	let query: User[];
+	const followingList: User[] = await getFollowing(req.user['_id'], res)
+	return res
+		.status(200)
+		.json({msg:'success', following:followingList})
+})
+
+app.get('/search_users/:query', authenticateToken, async (req: Request, res: Response) => {
+	const query: string = req.params.query
+	let queryOutput: User[];
+	// query all where 'query' exist inside name (SQL's LIKE keyword)
 	try {
-		// find user making query
-		query = await UserDB.find({_id: userId})
-	} catch (error) {
+		queryOutput = await UserDB.find(
+			{ username: { $regex: new RegExp(query, 'i') } },  // 'i' means case insesetive
+			{ username: 1, _id: 1} ) // only select username and _id
+	} catch (error: any) {
 		console.error(error)
 		return res
 			.status(500)
-			.json({msg:'unable to fetch user database'})
+			.json({msg: 'could not fetch users tablwe'})
 	}
 
-	if (query.length === 0) {
-		return res
-			.status(404)
-			.json({msg:'user not found'})
-	}
-	// load user into var
-	const user: User = {
-		username: query[0]['username'],
-		_id: query[0]['_id'],
-		following: query[0]['following'],
-	}
-	
-	const followingList: string[] = []
+	// parse only names and id
+	queryOutput.map((item: User, index: number) => {
+		return {
+			username: item['username'],
+			_id: item['_id'],
+		}
+	})
+	// get users following data, currently stored as ids, translate to usernames
 
-	for (const userId of user['following']) {
-		const username = await userIdToUsername(userId);
-		followingList.push(username);
-	}
+	const followingList: User[] = await getFollowing(req.user['_id'], res)
+
+
+	const notFollowing: User[] = queryOutput.filter((item1) => {
+		return (
+			!followingList.some((item2) => item1.username === item2.username) &&
+			item1.username !== req.user.username
+		);
+	});
+
+
 	return res
 		.status(200)
-		.json({msg:'succes', following:followingList})
+		.json({msg:'success', query:notFollowing})
 })
 
 // ---------------------------- SPOTIFY ----------------------------  //
