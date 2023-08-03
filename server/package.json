@@ -4,18 +4,20 @@
   "description": "",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -w",
     "start": "ts-node-esm src/index.ts",
-    "dev": "tsc && nodemon dist/server.js"
+    "dev1": "tsc && nodemon dist/server.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@types/bcrypt": "^5.0.0",
     "atob": "^2.1.2",
+    "axios": "^1.4.0",
     "bcrypt": "^5.1.0",
     "buffer": "^6.0.3",
     "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.1",
     "mongoose": "^7.4.0"

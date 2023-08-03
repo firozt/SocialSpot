@@ -3,9 +3,11 @@ import User from '../interfaces/User';
 
 // Define schema of Mongodb
 const User = new mongoose.Schema({
-    name: { type: String, require: true},
+    email: { type: String, required: true, unique: true},
     password: { type: String, require: true},
-}, { collection: 'user-data'})
+    username: { type: String, require: false, unique: true},
+    following: { type: Array<String>, require: false, default: []},
+}, { collection: 'users'})
 
 const model = mongoose.model<User & Document>('UserData', User)
 export default model;
