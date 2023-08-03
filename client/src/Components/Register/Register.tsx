@@ -43,11 +43,13 @@ const Register: React.FC<Props>= ({}) => {
 
   return (
     <Box 
-    bgColor={'gray.100'}
-    border={'1px solid black'}
+    color={'gray.200'}
+    bgColor={'#1f1f1f'}
+    border={'2px solid'}
+    borderColor={'gray.400'}
     borderRadius={'10px'}
     padding={10}
-    w={'min(600px,95vw)'}
+    w={'min(450px,95vw)'}
     margin={'auto'}
     my={10}>
 			<Heading fontSize={'5xl'}>Register</Heading>
@@ -59,11 +61,15 @@ const Register: React.FC<Props>= ({}) => {
       <form>
         <Input 
         type='text' 
+        variant={'filled'}
+        bg={'gray.200'}
         placeholder='email' 
         onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}/> <br/>
         <InputGroup my={1} size='md'>
           <Input
             pr='4.5rem'
+            variant={'filled'}
+            bg={'gray.200'}
             type={show ? 'text' : 'password'}
             placeholder='Enter password'
             onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}

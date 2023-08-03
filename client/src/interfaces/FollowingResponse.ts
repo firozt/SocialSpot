@@ -1,6 +1,8 @@
+import User from "./User";
+
 interface FollowingResponse {
     msg : string,
-    following: string[],
+    following: User[],
 }
 
 export default FollowingResponse

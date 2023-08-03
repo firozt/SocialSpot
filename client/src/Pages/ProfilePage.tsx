@@ -4,8 +4,12 @@ import User from '../interfaces/User'
 import { useNavigate } from 'react-router-dom'
 import axios, { AxiosResponse } from 'axios'
 import Following from '../Components/Following/Following'
-import { Box, Button, Center, Heading, Table, Td, Text } from '@chakra-ui/react'
+import { Box, Button, Center, Flex, HStack, Heading, Icon, Table, Tbody, Td, Text, Tr } from '@chakra-ui/react'
 import Navbar from '../Components/Navbar/Navbar'
+import { FiCrosshair, FiDelete, FiX } from 'react-icons/fi'
+import UserDetails from '../Components/UserDetails/UserDetails'
+import FindFriends from '../Components/FindFriends/FindFriends'
+import AddPost from '../Components/AddPost/AddPost'
 
 
 type Props = {
@@ -15,8 +19,16 @@ type Props = {
 
 const ProfilePage: React.FC<Props> = ({isMobile}) => {
   const [user, setUser] = useState<User>()
-  const navigate = useNavigate()
+  const [relogUser, setRelogUser] = useState<boolean>(false);
+  const [hasTokens, setHasTokens] = useState<boolean>(false);
 
+  const checkHasTokens = (): boolean => {
+    const tokenbool: boolean = !!(localStorage.getItem('atoken') && localStorage.getItem('rtoken'));
+    setHasTokens(tokenbool)
+    return tokenbool
+  }
+
+  const navigate = useNavigate()
   // checks if user is logged in on page mount
   useEffect(() => {
     const checkUser = async () => {
@@ -32,40 +44,31 @@ const ProfilePage: React.FC<Props> = ({isMobile}) => {
     }
     
     checkUser()
-  },[])
-
-  const logout = async (): Promise<void> => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('spotify_token')
-    navigate('/')
-  }
-
+  },[relogUser])
 
 	return (
     <>
       <Table>
-        <Td w={isMobile ? '2rem' : 'min(25vw,300px)'}>
-          <Navbar isMobile={isMobile} />
-        </Td>
-        <Td>
-          <Center>
-            {!user ? <p>Loading...</p> : 
-            <div>
-              <Heading>User Landing Page</Heading>
-              {user.username ? 
-              <Text>Welcome {user.username}</Text> :
-              <>
-                <Text>
-                  Your username hasnt been set yet
-                  click <i onClick={() => navigate('/profile')}>here</i> to setup profile
-                </Text>
-              </>
-              }
-              <Button onClick={logout}>Logout</Button>
-              <Following/>
-            </div>  
-        }</Center>
-        </Td>
+        <Tbody>
+          <Tr>
+            <Td w={isMobile ? '2rem' : 'min(25vw,250px)'}>
+              <Navbar isMobile={isMobile} />
+            </Td>
+            <Td>
+              <Center>
+                {!user ? (<Text>Loading...</Text>):
+                (
+                  <Flex flexWrap={'wrap'} justifyContent={'center'}>
+                    <UserDetails user={user} relogUser={() => setRelogUser(!relogUser)} />
+                    <Following relogUser={relogUser} />
+                    <FindFriends relogUser={() =>setRelogUser(!relogUser)}/>
+                    <AddPost user={user}/>
+                  </Flex>
+                )}
+              </Center>
+            </Td>
+          </Tr>
+        </Tbody>
       </Table>
 
     </>

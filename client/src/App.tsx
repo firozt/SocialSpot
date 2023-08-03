@@ -11,6 +11,7 @@ import ProfilePage from './Pages/ProfilePage';
 import { useEffect, useState } from 'react';
 import FeedPage from './Pages/FeedPage';
 import SettingsPage from './Pages/SettingsPage';
+import Callback from './Pages/Callback';
 
 
 const App = () => {
@@ -44,6 +45,8 @@ const App = () => {
           <Route path="/profile" element={<ProfilePage isMobile={isMobile}/>} />
           <Route path="/feed" element={<FeedPage isMobile={isMobile} />} />
           <Route path="/settings" element={<SettingsPage isMobile={isMobile} />} />
+          {/* Used when user gets spotify token, handles token stuff then redirects to /profile */}
+          <Route path="/callback" element={<Callback />} /> 
         </Routes>
       </BrowserRouter>
     </>
