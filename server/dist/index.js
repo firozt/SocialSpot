@@ -11,23 +11,25 @@ const express_1 = __importDefault(require("express"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const path_1 = __importDefault(require("path"));
-dotenv_1.default.config();
-const envPath = path_1.default.resolve(__dirname, '../../.env'); // Adjust the path as needed
-// Load the environment variables from the .env file
-dotenv_1.default.config({ path: envPath });
+const request_promise_native_1 = __importDefault(require("request-promise-native"));
+dotenv_1.default.config({ path: path_1.default.resolve(__dirname, '../../.env') });
 // Setting up connections and middleware
 mongoose_1.default.connect('mongodb://localhost:27017/MernTest');
 const app = (0, express_1.default)();
 const port = 3000;
-// app.use(cors());
-app.use((0, cors_1.default)({ origin: 'http://localhost:5173' }));
+app.use((0, cors_1.default)({
+    origin: 'http://localhost:5173',
+    credentials: true
+}));
 app.use(express_1.default.json());
+console.log('SERVER STARTING');
 // ----------------------- HELPER FUNCTIONS ------------------------  //
 // verifies Basic Auth credentials then returns
 const checkBasicAuth = (req, res) => {
     const authHeader = req.headers['authorization'];
     if (!authHeader) {
-        return res.status(401).send('Authorization header not provided');
+        res.status(401).send('Authorization header not provided');
+        throw new Error('Authorization header not provided');
     }
     const encodedCredentials = authHeader.split(' ')[1]; // decode credentials
     const credentials = atob(encodedCredentials).split(':');
@@ -52,17 +54,20 @@ const generateToken = (payload) => {
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) {
-        return res
+        res
             .status(401)
             .json({ msg: 'auth header missing' });
+        throw new Error('Auth headers missing');
     }
     const token = authHeader.split(' ')[1];
     jsonwebtoken_1.default.verify(token, secretKey, (err, user) => {
         if (err) {
-            return res
+            res
                 .status(403)
-                .json({ msg: 'user does not have permission' })
-                .redirect(`${process.env.CLIENT_URL}:${process.env.CLIENT_PORT}/login`);
+                .json({ msg: 'user does not have permission' });
+            // TODO: fix whatevers happening here
+            // .redirect(`${process.env.CLIENT_URL}:${process.env.CLIENT_PORT}/login`)
+            throw new Error('Unable to verify JWT');
         }
         req.user = user;
         next();
@@ -105,14 +110,16 @@ const getFollowing = async (userId, res) => {
     }
     catch (error) {
         console.error(error);
-        return res
+        res
             .status(500)
             .json({ msg: 'unable to fetch user database' });
+        throw new Error('Unable to get following from users collection');
     }
     if (query.length === 0) {
-        return res
+        res
             .status(404)
             .json({ msg: 'user not found' });
+        throw new Error('User not found in users collection');
     }
     // load user into var
     const user = {
@@ -128,12 +135,11 @@ const getFollowing = async (userId, res) => {
     return followingList;
 };
 // ------------------------- API ENDPOINTS -------------------------  //
-console.log('SERVER STARTING');
 app.get('/', (req, res) => {
     res.send('working');
 });
 app.post('/set_name/:username', authenticateToken, async (req, res) => {
-    const userid = req.user['_id'];
+    const userid = String(req.user['_id']);
     console.log(req.params.username);
     try {
         const newUser = await user_model_js_1.default.findByIdAndUpdate(userid, { username: req.params.username }, { new: true });
@@ -249,7 +255,7 @@ app.post('/follow/:username', authenticateToken, async (req, res) => {
     }
     catch (error) {
         return res
-            .status('500')
+            .status(500)
             .json({ msg: 'could not append friend to friends list' });
     }
     return res
@@ -275,7 +281,7 @@ app.post('/unfollow/:username', authenticateToken, async (req, res) => {
     }
 });
 app.get('/following', authenticateToken, async (req, res) => {
-    const followingList = await getFollowing(req.user['_id'], res);
+    const followingList = await getFollowing(String(req.user['_id']), res);
     return res
         .status(200)
         .json({ msg: 'success', following: followingList });
@@ -302,7 +308,7 @@ app.get('/search_users/:query', authenticateToken, async (req, res) => {
         };
     });
     // get users following data, currently stored as ids, translate to usernames
-    const followingList = await getFollowing(req.user['_id'], res);
+    const followingList = await getFollowing(String(req.user['_id']), res);
     const notFollowing = queryOutput.filter((item1) => {
         return (!followingList.some((item2) => item1.username === item2.username) &&
             item1.username !== req.user.username);
@@ -312,40 +318,126 @@ app.get('/search_users/:query', authenticateToken, async (req, res) => {
         .json({ msg: 'success', query: notFollowing });
 });
 // ---------------------------- SPOTIFY ----------------------------  //
-app.get('/callback', (req, res) => {
-    // const redirect_uri: string = `http://${process.env.CLIENT_URL}:${process.env.CLIENT_PORT}/`
-    if (!req.query.code) {
-        return res
-            .status(401)
-            .json({ msg: 'unauthorized' });
-    }
-    return res.json({ msg: 'succes', spotify_token: req.query.code });
-});
-app.get('/spotify', authenticateToken, (req, res) => {
-    const url = buildRequestURL();
-    return res
-        .status(200)
-        .json({ 'msg': 'success', url: url });
-});
-// builds URL that we will redirect to to gain user access
-const buildRequestURL = () => {
+app.get('/spotify', (req, res) => {
+    const scopes = 'user-read-private user-read-email';
     const client_id = process.env.SPOTIFY_CLIENT_ID;
-    // const redirect_uri: string = `${process.env.API_URL}:${process.env.API_PORT}/callback`
-    const redirect_uri = `http://${process.env.CLIENT_URL}:${process.env.CLIENT_PORT}/user`;
-    console.log(redirect_uri);
-    const AUTHORIZE = "https://accounts.spotify.com/authorize";
-    // const client_secret: string = process.env.SPOTIFY_CLIENT_SECRET
-    // localStorage.setItem("client_id", client_id);
-    // localStorage.setItem("client_secret", client_secret); // In a real app you should not expose your client_secret to the user
-    let url = AUTHORIZE;
-    url += "?client_id=" + client_id;
-    url += "&response_type=code";
-    url += "&redirect_uri=" + encodeURI(redirect_uri);
-    url += "&show_dialog=true";
-    // scopes
-    url += "&scope=user-read-private user-read-email user-modify-playback-state user-read-playback-position user-library-read streaming user-read-playback-state user-read-recently-played playlist-read-private";
-    return url; // Show Spotify's authorization screen
-};
+    // const redirect_uri =  `${process.env.API_URL}:${process.env.API_PORT}/callback`
+    const redirect_uri = 'http://localhost:5173/callback';
+    res.redirect('https://accounts.spotify.com/authorize' +
+        '?response_type=code' +
+        '&client_id=' + client_id +
+        (scopes ? '&scope=' + encodeURIComponent(scopes) : '') +
+        '&redirect_uri=' + encodeURIComponent(redirect_uri));
+});
+// takes auth code in headers as 'code'
+app.get('/get_spotify_tokens', authenticateToken, async (req, res) => {
+    const client_id = process.env.SPOTIFY_CLIENT_ID;
+    const redirect_uri = 'http://localhost:5173/callback';
+    const client_secret = process.env.SPOTIFY_CLIENT_SECRET;
+    const code = req.headers.code || null;
+    console.log('code: ', code);
+    if (code) {
+        const authOptions = {
+            url: 'https://accounts.spotify.com/api/token',
+            form: {
+                code: code,
+                redirect_uri: redirect_uri,
+                grant_type: 'authorization_code',
+            },
+            headers: {
+                'Authorization': 'Basic ' + (new Buffer(client_id + ':' + client_secret).toString('base64')),
+            },
+            json: true,
+        };
+        try {
+            const response = await request_promise_native_1.default.post(authOptions);
+            if (response) {
+                const access_token = response.access_token;
+                const refresh_token = response.refresh_token;
+                res
+                    .status(200)
+                    .json({
+                    access_token: access_token,
+                    refresh_token: refresh_token,
+                });
+            }
+            else {
+                console.log('invalid token');
+                res.status(400)
+                    .json({ msg: 'invalid token' });
+            }
+        }
+        catch (error) {
+            console.error(error);
+            res.send({
+                error: 'Something went wrong while retrieving the tokens',
+            });
+        }
+    }
+    else {
+        console.log('no code');
+        res.status(400)
+            .json({ msg: 'no code in headers' });
+    }
+});
+// takes refresh_token in header
+app.get('/refresh_token', authenticateToken, (req, res) => {
+    const client_id = process.env.SPOTIFY_CLIENT_ID;
+    const client_secret = process.env.SPOTIFY_CLIENT_SECRET;
+    const refresh_token = String(req.headers.refresh_token);
+    var authOptions = {
+        url: 'https://accounts.spotify.com/api/token',
+        headers: {
+            'Authorization': 'Basic ' + (new Buffer(client_id + ':' + client_secret).toString('base64')),
+        },
+        form: {
+            grant_type: 'refresh_token',
+            refresh_token: refresh_token
+        },
+        json: true
+    };
+    request_promise_native_1.default.post(authOptions, (error, response, body) => {
+        if (!error && response.statusCode === 200) {
+            var access_token = body.access_token;
+            res.json({ 'access_token': access_token });
+        }
+    });
+});
+// takes access_token in header
+app.get('/top/:type', authenticateToken, async (req, res) => {
+    // Extract access token from request headers, and query type from url
+    const access_token = String(req.headers.access_token);
+    const type = String(req.params.type);
+    console.log('type', type);
+    console.log('access token', access_token);
+    if (type != 'artists' && type != 'tracks') {
+        res.status(400).json({ msg: 'Invalid query type' });
+        return;
+    }
+    if (!access_token) {
+        res.status(401).json({ msg: 'Access token missing from request headers' });
+        return;
+    }
+    try {
+        // Request top artists from Spotify's API
+        const response = await request_promise_native_1.default.get(`https://api.spotify.com/v1/me/top/${type}`, {
+            headers: {
+                Authorization: `Bearer ${access_token}`
+            }
+        });
+        res.status(200).json({ msg: 'success', data: JSON.parse(response) });
+    }
+    catch (error) {
+        if (error.response) {
+            res.status(error.response.status).json({ msg: error.response.data });
+        }
+        else {
+            // Something happened in setting up the request and triggered an Error
+            console.log('Error', error.message);
+            res.status(500).json({ msg: error.message });
+        }
+    }
+});
 // ------------------------------ END ------------------------------  //
 app.listen(port, () => {
     console.log(`listening on port ${port}`);
