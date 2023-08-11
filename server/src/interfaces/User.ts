@@ -8,6 +8,7 @@ interface User {
     password?: string,
     following?: string[],
     __v?: number,
+    refreshToken?: string
 }
 
 export default User

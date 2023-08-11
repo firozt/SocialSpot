@@ -3,6 +3,8 @@
 // // Define schema of Mongodb
 // const User = new mongoose.Schema({
 //     userid: { String, require: true },
+//     refreshToken: { String },
+
 
 // }, { collection: 'spotifyData'})
 

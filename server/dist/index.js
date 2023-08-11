@@ -12,6 +12,8 @@ const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const path_1 = __importDefault(require("path"));
 const request_promise_native_1 = __importDefault(require("request-promise-native"));
+const axios_1 = __importDefault(require("axios"));
+const console_1 = require("console");
 dotenv_1.default.config({ path: path_1.default.resolve(__dirname, '../../.env') });
 // Setting up connections and middleware
 mongoose_1.default.connect('mongodb://localhost:27017/MernTest');
@@ -54,20 +56,14 @@ const generateToken = (payload) => {
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) {
-        res
-            .status(401)
-            .json({ msg: 'auth header missing' });
-        throw new Error('Auth headers missing');
+        res.status(401).json({ msg: 'auth header missing' });
+        return;
     }
     const token = authHeader.split(' ')[1];
     jsonwebtoken_1.default.verify(token, secretKey, (err, user) => {
         if (err) {
-            res
-                .status(403)
-                .json({ msg: 'user does not have permission' });
-            // TODO: fix whatevers happening here
-            // .redirect(`${process.env.CLIENT_URL}:${process.env.CLIENT_PORT}/login`)
-            throw new Error('Unable to verify JWT');
+            res.status(403).json({ msg: 'user does not have permission' });
+            return;
         }
         req.user = user;
         next();
@@ -319,7 +315,7 @@ app.get('/search_users/:query', authenticateToken, async (req, res) => {
 });
 // ---------------------------- SPOTIFY ----------------------------  //
 app.get('/spotify', (req, res) => {
-    const scopes = 'user-read-private user-read-email';
+    const scopes = 'user-read-private user-read-email user-top-read';
     const client_id = process.env.SPOTIFY_CLIENT_ID;
     // const redirect_uri =  `${process.env.API_URL}:${process.env.API_PORT}/callback`
     const redirect_uri = 'http://localhost:5173/callback';
@@ -329,13 +325,14 @@ app.get('/spotify', (req, res) => {
         (scopes ? '&scope=' + encodeURIComponent(scopes) : '') +
         '&redirect_uri=' + encodeURIComponent(redirect_uri));
 });
+// runs once per user, once ran will save refresh token to db and return tempoary access tokens
 // takes auth code in headers as 'code'
 app.get('/get_spotify_tokens', authenticateToken, async (req, res) => {
     const client_id = process.env.SPOTIFY_CLIENT_ID;
     const redirect_uri = 'http://localhost:5173/callback';
     const client_secret = process.env.SPOTIFY_CLIENT_SECRET;
-    const code = req.headers.code || null;
-    console.log('code: ', code);
+    const code = String(req.headers.code) || '';
+    // check if code is present in headerss
     if (code) {
         const authOptions = {
             url: 'https://accounts.spotify.com/api/token',
@@ -349,25 +346,40 @@ app.get('/get_spotify_tokens', authenticateToken, async (req, res) => {
             },
             json: true,
         };
+        // request spotify endpoint to obtain refresh / access tokens
         try {
             const response = await request_promise_native_1.default.post(authOptions);
             if (response) {
                 const access_token = response.access_token;
                 const refresh_token = response.refresh_token;
-                res
-                    .status(200)
-                    .json({
-                    access_token: access_token,
-                    refresh_token: refresh_token,
+                // now store refresh token in db
+                const userid = String(req.user._id);
+                const doc = await user_model_js_1.default.findByIdAndUpdate(userid, {
+                    refreshToken: refresh_token
+                }, {
+                    new: true,
+                    upsert: true,
                 });
+                console.log('doc: ', doc);
+                // error checking db
+                if (!doc) {
+                    res.status(404)
+                        .json({ msg: 'user not found' });
+                    return;
+                }
+                console.log('success');
+                res.status(200)
+                    .json({ access_token: access_token, });
             }
             else {
+                // auth token in header was invalid
                 console.log('invalid token');
                 res.status(400)
                     .json({ msg: 'invalid token' });
             }
         }
         catch (error) {
+            // error calling spotify endpoint
             console.error(error);
             res.send({
                 error: 'Something went wrong while retrieving the tokens',
@@ -375,16 +387,30 @@ app.get('/get_spotify_tokens', authenticateToken, async (req, res) => {
         }
     }
     else {
-        console.log('no code');
+        // auth code not present in headers
         res.status(400)
-            .json({ msg: 'no code in headers' });
+            .json({ msg: 'no auth code in headers' });
     }
 });
 // takes refresh_token in header
-app.get('/refresh_token', authenticateToken, (req, res) => {
+const refreshTokens = async (username) => {
     const client_id = process.env.SPOTIFY_CLIENT_ID;
     const client_secret = process.env.SPOTIFY_CLIENT_SECRET;
-    const refresh_token = String(req.headers.refresh_token);
+    let userid;
+    // convert username to userid
+    try {
+        userid = await usernameToUserId(username);
+    }
+    catch (error) {
+        throw new Error(error.message);
+    }
+    // obtain refreshtokens from db given userid
+    let user;
+    user = await user_model_js_1.default.findById(userid);
+    if (!user) {
+        throw (0, console_1.error)('user not found');
+    }
+    const refresh_token = user['refreshToken'];
     var authOptions = {
         url: 'https://accounts.spotify.com/api/token',
         headers: {
@@ -396,45 +422,84 @@ app.get('/refresh_token', authenticateToken, (req, res) => {
         },
         json: true
     };
-    request_promise_native_1.default.post(authOptions, (error, response, body) => {
+    let access_token;
+    const response = await request_promise_native_1.default.post(authOptions, (error, response, body) => {
         if (!error && response.statusCode === 200) {
-            var access_token = body.access_token;
-            res.json({ 'access_token': access_token });
+            access_token = body.access_token;
+            return access_token;
+        }
+        else {
+            throw new Error(`Error making request to spotify, ${error}, response ${JSON.stringify(response)}`);
         }
     });
-});
-// takes access_token in header
-app.get('/top/:type', authenticateToken, async (req, res) => {
+    return response.access_token;
+};
+const validateAccessToken = async (req, res, next) => {
+    // check if access token is valid
+    const access_token = String(req.headers.access_token);
+    axios_1.default.get('https://api.spotify.com/v1/me', {
+        headers: {
+            'Authorization': 'Bearer ' + access_token
+        }
+    }).then(async (response) => {
+        if (response.status === 200) {
+            req.headers.changed = '0';
+            next();
+        }
+        else {
+            throw new Error("Invalid status code"); // Handle non-200 status codes as errors
+        }
+    }).catch(async (error) => {
+        const newAccessToken = await refreshTokens(req.user['username']);
+        req.headers.access_token = newAccessToken;
+        req.headers.changed = '1';
+        next();
+    });
+};
+// takes access_token, days in header, 
+app.get('/top/:type', authenticateToken, validateAccessToken, async (req, res) => {
     // Extract access token from request headers, and query type from url
     const access_token = String(req.headers.access_token);
     const type = String(req.params.type);
-    console.log('type', type);
-    console.log('access token', access_token);
+    const days = String(req.headers.days);
+    // error checking variables
     if (type != 'artists' && type != 'tracks') {
         res.status(400).json({ msg: 'Invalid query type' });
         return;
     }
-    if (!access_token) {
+    if (!Number(days)) {
+        res.status(400).json({ msg: 'Days is missing or undefined' });
+        return;
+    }
+    if (!access_token || access_token == 'undefined') {
         res.status(401).json({ msg: 'Access token missing from request headers' });
         return;
     }
     try {
         // Request top artists from Spotify's API
-        const response = await request_promise_native_1.default.get(`https://api.spotify.com/v1/me/top/${type}`, {
+        const response = await request_promise_native_1.default.get(`https://api.spotify.com/v1/me/top/${type}?offset=${days}`, {
             headers: {
                 Authorization: `Bearer ${access_token}`
             }
         });
-        res.status(200).json({ msg: 'success', data: JSON.parse(response) });
+        if (req.headers.changed == '1') {
+            res.status(200).json({ msg: 'success', data: response, newToken: true, access_token: access_token });
+        }
+        else {
+            res.status(200).json({ msg: 'success', data: response });
+        }
     }
     catch (error) {
-        if (error.response) {
-            res.status(error.response.status).json({ msg: error.response.data });
+        console.log('error in spotify endpoint');
+        if (error?.statusCode == 401) {
+            console.log('access token ran out');
+            res.status(401).json({ msg: 'access token is not valid' });
         }
         else {
             // Something happened in setting up the request and triggered an Error
-            console.log('Error', error.message);
-            res.status(500).json({ msg: error.message });
+            // console.log('Error', error.message);
+            console.log('error here!!!!!!!!!!!!!', error.statusCode);
+            res.status(500).json({ msg: error });
         }
     }
 });

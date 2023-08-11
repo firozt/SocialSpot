@@ -7,9 +7,10 @@ const mongoose_1 = __importDefault(require("mongoose"));
 // Define schema of Mongodb
 const User = new mongoose_1.default.Schema({
     email: { type: String, required: true, unique: true },
-    password: { type: String, require: true },
+    password: { type: String, require: true, unique: false },
     username: { type: String, require: false, unique: true },
-    following: { type: (Array), require: false, default: [] },
+    following: { type: (Array), require: false, unique: false, default: [] },
+    refreshToken: { type: String, require: false, unique: false }
 }, { collection: 'users' });
 const model = mongoose_1.default.model('UserData', User);
 exports.default = model;
