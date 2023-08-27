@@ -1,9 +1,10 @@
-import React, { ChangeEvent, useState } from 'react'
+import React, { ChangeEvent, useEffect, useState } from 'react'
 import User from '../../interfaces/User'
 import { Box, Button, Divider, Flex, Heading, Input, Table, Tbody, Td, Text, Th, Thead, Tr } from '@chakra-ui/react'
 import axios, { AxiosResponse } from 'axios'
 import LoginResponse from '../../interfaces/LoginResponse'
 import { redirect, useNavigate } from 'react-router-dom'
+import SpotifyLogin from '../SpotifyLogin/SpotifyLogin'
 
 type Props = {
 	user: User,
@@ -11,7 +12,8 @@ type Props = {
 }
 
 const UserDetails: React.FC<Props> = ({user, relogUser}) => {
-	const [username, setUsername] = useState<string>('')
+	const [username, setUsername] = useState<string>('');
+	const [hasLinkedSpotify, setHasLinkedSpotify] = useState<boolean>(false);
 	const navigate = useNavigate()
 	const changeName = async () => {
 		try {
@@ -28,7 +30,7 @@ const UserDetails: React.FC<Props> = ({user, relogUser}) => {
 				}
 			)
 			relogUser()
-			console.log('old toke = ', localStorage.getItem('token'))
+			console.log('old token = ', localStorage.getItem('token'))
 			localStorage.removeItem('token')
 			localStorage.setItem('token',response.data.token) // reset token
 			navigate('/')
@@ -38,10 +40,26 @@ const UserDetails: React.FC<Props> = ({user, relogUser}) => {
 		}
 	}
 
-	const requestSpotifyToken = async () => {
-		window.location.href = "http://localhost:3000/spotify";
-		relogUser()
-	}
+	useEffect(() => {
+		const CheckSpotifyLinked = async (): Promise<boolean> => {
+			try {
+				const response: AxiosResponse = await axios.get(`http://127.0.0.1:3000/has_linked_spotify`, {
+					headers: {
+						Authorization: `Bearer ${localStorage.getItem('token')}`
+					}
+				})
+				if (response.status == 200) {
+					setHasLinkedSpotify(true)
+					return true;
+				}
+				return false;
+			} catch (error: any) {
+				alert('check user spotify call is not working')
+				return false;
+			}
+		}
+		CheckSpotifyLinked()
+	}, [])
 
 	return (
 		<Box 
@@ -91,13 +109,10 @@ const UserDetails: React.FC<Props> = ({user, relogUser}) => {
 						</Table>
 					</>}
 					{
-						!localStorage.getItem('atoken')?
+						!hasLinkedSpotify?
 						(<>
 							<Divider borderColor={'white'} my={5} />
-							<Flex justify={'center'} align={'center'}>
-								<Text mr={5}>Link Spotify</Text>
-								<Button onClick={() => requestSpotifyToken()}>Sign in with Spotify</Button>
-							</Flex>
+								<SpotifyLogin onSuccess={relogUser} />
 						</>) : (<></>)
 					}
 

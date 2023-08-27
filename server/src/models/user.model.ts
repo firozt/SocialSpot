@@ -7,7 +7,6 @@ const User = new mongoose.Schema({
     password: { type: String, require: true, unique: false},
     username: { type: String, require: false, unique: true},
     following: { type: Array<String>, require: false, unique: false, default: []},
-    refreshToken: { type: String, require: false, unique: false}
 }, { collection: 'users'})
 
 const model = mongoose.model<User & Document>('UserData', User)

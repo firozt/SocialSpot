@@ -10,7 +10,8 @@ const User = new mongoose_1.default.Schema({
     password: { type: String, require: true, unique: false },
     username: { type: String, require: false, unique: true },
     following: { type: (Array), require: false, unique: false, default: [] },
+    refreshToken: { type: String, require: false, unique: false }
 }, { collection: 'users' });
 const model = mongoose_1.default.model('UserData', User);
 exports.default = model;
-//# sourceMappingURL=user.model.js.map
+//# sourceMappingURL=user.model%20copy.js.map

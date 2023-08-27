@@ -2,6 +2,7 @@ import React, { ChangeEvent, FormEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { Box, Button, Center, Heading, Input, InputGroup, InputRightElement, Text } from '@chakra-ui/react'
+import SpotifyLogin from '../SpotifyLogin/SpotifyLogin'
 
 
 type Props = {}
@@ -11,12 +12,31 @@ const Register: React.FC<Props>= ({}) => {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [message, setMessage] = useState<string>('');
-  const [show, setShow] = React.useState(false)
+  const [show, setShow] = useState<boolean>(false)
+  const [spotifyLinked, setSpotiftyLinked] = useState<boolean>(false)
 
   const navigate = useNavigate()
 
 
   const handleSubmit = async () => {
+    // check inputs
+    let errormsg = ''
+    if (email == '') {
+      errormsg += 'email is empty, '
+    }
+    if (password == '') {
+      errormsg += 'password is empty, '
+    }
+    if (!spotifyLinked) {
+      errormsg += 'spotify must be linked'
+    }
+    
+    if (errormsg != '') {
+      setMessage(errormsg)
+      return
+    }
+
+    // successfull inputs
     const credentials = `${email}:${password}`;
     const encodedCredentials = btoa(credentials);
     try {
@@ -56,7 +76,9 @@ const Register: React.FC<Props>= ({}) => {
       <Text 
       size={'lg'}
       m={2}>
-        {message || 'enter details'}
+        <Text>
+          {message || 'enter details'}
+        </Text>
       </Text>
       <form>
         <Input 
@@ -81,6 +103,7 @@ const Register: React.FC<Props>= ({}) => {
           </InputRightElement>
         </InputGroup> 
         <Box>
+          <SpotifyLogin onSuccess={() => setSpotiftyLinked(true)}/>
           <Button 
           onClick={() => handleSubmit()} 
           width={'100%'}
@@ -94,7 +117,7 @@ const Register: React.FC<Props>= ({}) => {
             Back
           </Button>
         </Box>
-        <Text mt={2}
+        <Text mt={2} textAlign={'center'}
         color={'gray'}>
           Already have an account? login by clicking <i onClick={() => navigate('/login')}>here</i>
         </Text>

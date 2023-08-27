@@ -2,7 +2,7 @@
 // import mongoose from 'mongoose';
 Object.defineProperty(exports, "__esModule", { value: true });
 // // Define schema of Mongodb
-// const User = new mongoose.Schema({
+// const UserTokens = new mongoose.Schema({
 //     userid: { String, require: true },
 //     refreshToken: { String },
 // }, { collection: 'spotifyData'})

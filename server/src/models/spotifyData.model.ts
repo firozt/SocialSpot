@@ -1,7 +1,7 @@
 // import mongoose from 'mongoose';
 
 // // Define schema of Mongodb
-// const User = new mongoose.Schema({
+// const UserTokens = new mongoose.Schema({
 //     userid: { String, require: true },
 //     refreshToken: { String },
 

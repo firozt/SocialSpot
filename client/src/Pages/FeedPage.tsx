@@ -17,9 +17,9 @@ const FeedPage: React.FC<Props> = ({isMobile}) => {
           </Td>
           <Td>
             <Center display={'flex'} flexDir={'column'}>
-              <Post />
-              <Post />
-              <Post />
+              {/* <Post /> */}
+              {/* <Post /> */}
+              {/* <Post /> */}
             </Center>
           </Td>
         </Tr>

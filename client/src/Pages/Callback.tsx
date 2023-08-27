@@ -27,7 +27,7 @@ const Callback: React.FC<Props> = ({}) => {
       // now we get access and refresh tokens from this
       const token: string = localStorage.getItem('token') || 'null'
       try {
-        const response: AxiosResponse<SpotifyTokenResponse> = await axios.get(
+        await axios.get(
           'http://localhost:3000/get_spotify_tokens',
           {
               headers: {
@@ -36,10 +36,9 @@ const Callback: React.FC<Props> = ({}) => {
                   code: spotifyToken
               },
           })
-        localStorage.setItem('atoken',response.data.access_token)
-        localStorage.setItem('rtoken',response.data.refresh_token)
       } catch (error: any) {
         console.error(error)
+        navigate('/profile')
       }
     }
     getAccessTokens()

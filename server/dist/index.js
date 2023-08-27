@@ -7,13 +7,12 @@ const bcrypt_1 = __importDefault(require("bcrypt"));
 const mongoose_1 = __importDefault(require("mongoose"));
 const cors_1 = __importDefault(require("cors"));
 const user_model_js_1 = __importDefault(require("./models/user.model.js"));
+const tokens_model_js_1 = __importDefault(require("./models/tokens.model.js"));
 const express_1 = __importDefault(require("express"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const path_1 = __importDefault(require("path"));
-const request_promise_native_1 = __importDefault(require("request-promise-native"));
 const axios_1 = __importDefault(require("axios"));
-const console_1 = require("console");
 dotenv_1.default.config({ path: path_1.default.resolve(__dirname, '../../.env') });
 // Setting up connections and middleware
 mongoose_1.default.connect('mongodb://localhost:27017/MernTest');
@@ -136,7 +135,6 @@ app.get('/', (req, res) => {
 });
 app.post('/set_name/:username', authenticateToken, async (req, res) => {
     const userid = String(req.user['_id']);
-    console.log(req.params.username);
     try {
         const newUser = await user_model_js_1.default.findByIdAndUpdate(userid, { username: req.params.username }, { new: true });
         if (!newUser) {
@@ -144,7 +142,6 @@ app.post('/set_name/:username', authenticateToken, async (req, res) => {
                 .status(401)
                 .json({ msg: 'cant find user' });
         }
-        console.log(newUser);
         const userToken = {
             _id: newUser['_id'],
             username: newUser['username'],
@@ -309,11 +306,10 @@ app.get('/search_users/:query', authenticateToken, async (req, res) => {
         return (!followingList.some((item2) => item1.username === item2.username) &&
             item1.username !== req.user.username);
     });
-    return res
-        .status(200)
-        .json({ msg: 'success', query: notFollowing });
+    return res.status(200).json({ msg: 'success', query: notFollowing });
 });
 // ---------------------------- SPOTIFY ----------------------------  //
+// asks user for spotify access
 app.get('/spotify', (req, res) => {
     const scopes = 'user-read-private user-read-email user-top-read';
     const client_id = process.env.SPOTIFY_CLIENT_ID;
@@ -325,182 +321,213 @@ app.get('/spotify', (req, res) => {
         (scopes ? '&scope=' + encodeURIComponent(scopes) : '') +
         '&redirect_uri=' + encodeURIComponent(redirect_uri));
 });
-// runs once per user, once ran will save refresh token to db and return tempoary access tokens
+// runs once per user, once ran will save refresh token and access token to token table
 // takes auth code in headers as 'code'
 app.get('/get_spotify_tokens', authenticateToken, async (req, res) => {
     const client_id = process.env.SPOTIFY_CLIENT_ID;
     const redirect_uri = 'http://localhost:5173/callback';
     const client_secret = process.env.SPOTIFY_CLIENT_SECRET;
-    const code = String(req.headers.code) || '';
-    // check if code is present in headerss
-    if (code) {
-        const authOptions = {
-            url: 'https://accounts.spotify.com/api/token',
-            form: {
-                code: code,
-                redirect_uri: redirect_uri,
-                grant_type: 'authorization_code',
-            },
-            headers: {
-                'Authorization': 'Basic ' + (new Buffer(client_id + ':' + client_secret).toString('base64')),
-            },
-            json: true,
-        };
-        // request spotify endpoint to obtain refresh / access tokens
-        try {
-            const response = await request_promise_native_1.default.post(authOptions);
-            if (response) {
-                const access_token = response.access_token;
-                const refresh_token = response.refresh_token;
-                // now store refresh token in db
-                const userid = String(req.user._id);
-                const doc = await user_model_js_1.default.findByIdAndUpdate(userid, {
-                    refreshToken: refresh_token
-                }, {
-                    new: true,
-                    upsert: true,
-                });
-                console.log('doc: ', doc);
-                // error checking db
-                if (!doc) {
-                    res.status(404)
-                        .json({ msg: 'user not found' });
-                    return;
-                }
-                console.log('success');
-                res.status(200)
-                    .json({ access_token: access_token, });
-            }
-            else {
-                // auth token in header was invalid
-                console.log('invalid token');
-                res.status(400)
-                    .json({ msg: 'invalid token' });
-            }
-        }
-        catch (error) {
-            // error calling spotify endpoint
-            console.error(error);
-            res.send({
-                error: 'Something went wrong while retrieving the tokens',
-            });
-        }
+    const code = String(req.headers.code);
+    if (!code) {
+        return res.status(400).json({ msg: 'no auth code in headers' });
     }
-    else {
-        // auth code not present in headers
-        res.status(400)
-            .json({ msg: 'no auth code in headers' });
+    try {
+        const authOptions = {
+            method: 'POST',
+            url: 'https://accounts.spotify.com/api/token',
+            headers: {
+                'Authorization': 'Basic ' + Buffer.from(`${client_id}:${client_secret}`).toString('base64'),
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            data: `code=${code}&redirect_uri=${redirect_uri}&grant_type=authorization_code`
+        };
+        const response = await (0, axios_1.default)(authOptions);
+        const access_token = response.data.access_token;
+        const refresh_token = response.data.refresh_token;
+        // Store refresh token + access token in db, as user is new we will need to create a new row
+        const userid = String(req.user._id);
+        await tokens_model_js_1.default.create({
+            userid: userid,
+            refreshToken: refresh_token,
+            accessToken: access_token,
+        });
+        res.status(200).json({ msg: 'successfull' });
+    }
+    catch (error) {
+        if (error.response && error.response.status === 400) {
+            console.log('invalid token');
+            return res.status(400).json({ msg: 'invalid token' });
+        }
+        console.error(error);
+        return res.status(500).send({
+            error: 'Something went wrong while retrieving the tokens',
+        });
     }
 });
-// takes refresh_token in header
+// helper function that takes refesh token given username. outputs access token
 const refreshTokens = async (username) => {
     const client_id = process.env.SPOTIFY_CLIENT_ID;
     const client_secret = process.env.SPOTIFY_CLIENT_SECRET;
-    let userid;
-    // convert username to userid
-    try {
-        userid = await usernameToUserId(username);
+    // Convert username to userid
+    const userid = await usernameToUserId(username);
+    if (!userid) {
+        throw new Error("User does not exist");
     }
-    catch (error) {
-        throw new Error(error.message);
+    // Obtain refreshToken from DB given userid
+    const userTokens = await tokens_model_js_1.default.findOne({ userid: userid });
+    console.log(userTokens);
+    if (!userTokens) {
+        throw new Error("User not found or user doesn't have a refreshToken");
     }
-    // obtain refreshtokens from db given userid
-    let user;
-    user = await user_model_js_1.default.findById(userid);
-    if (!user) {
-        throw (0, console_1.error)('user not found');
-    }
-    const refresh_token = user['refreshToken'];
-    var authOptions = {
+    // Construct auth options
+    const authOptions = {
+        method: 'post',
         url: 'https://accounts.spotify.com/api/token',
         headers: {
-            'Authorization': 'Basic ' + (new Buffer(client_id + ':' + client_secret).toString('base64')),
+            'Authorization': 'Basic ' + Buffer.from(`${client_id}:${client_secret}`).toString('base64'),
+            'Content-Type': 'application/x-www-form-urlencoded'
         },
-        form: {
-            grant_type: 'refresh_token',
-            refresh_token: refresh_token
-        },
-        json: true
+        data: `grant_type=refresh_token&refresh_token=${userTokens.refreshToken}`
     };
-    let access_token;
-    const response = await request_promise_native_1.default.post(authOptions, (error, response, body) => {
-        if (!error && response.statusCode === 200) {
-            access_token = body.access_token;
-            return access_token;
-        }
-        else {
-            throw new Error(`Error making request to spotify, ${error}, response ${JSON.stringify(response)}`);
-        }
-    });
-    return response.access_token;
+    // Make the request
+    try {
+        const response = await (0, axios_1.default)(authOptions);
+        return response.data.access_token;
+    }
+    catch (error) {
+        throw new Error(`Error making request to Spotify: ${error.message}`);
+    }
 };
+// obtain access token assosciated to a userid
+const getUserAccessToken = async (userid) => {
+    // search db for token given userid
+    const userToken = await tokens_model_js_1.default.findOne({ userid: userid });
+    if (!userToken) {
+        throw new Error(`Error: User does not exist in TokensDB`);
+    }
+    return userToken.accessToken;
+};
+// middleware to be called before any spotify api calls
 const validateAccessToken = async (req, res, next) => {
-    // check if access token is valid
-    const access_token = String(req.headers.access_token);
-    axios_1.default.get('https://api.spotify.com/v1/me', {
-        headers: {
-            'Authorization': 'Bearer ' + access_token
-        }
-    }).then(async (response) => {
+    const access_token = await getUserAccessToken(String(req.user._id));
+    // If there's no access token, we can directly throw an error or handle accordingly
+    if (!access_token) {
+        return res.status(401).json({ msg: 'Access token missing in database' });
+    }
+    // make call to a spotify endpoint , if it throws a 401, accesstoken has expired
+    // else it will return a 200 and access-token is not expired yet. do nothing
+    // if expired get a new one via refresh token
+    try {
+        const response = await axios_1.default.get('https://api.spotify.com/v1/me', {
+            headers: {
+                'Authorization': `Bearer ${access_token}`
+            }
+        });
         if (response.status === 200) {
+            // token OK
+            console.log('token OK');
             req.headers.changed = '0';
             next();
         }
         else {
-            throw new Error("Invalid status code"); // Handle non-200 status codes as errors
+            // token EXPIRED
+            throw new Error('Invalid status code from Spotify API'); // move to catch block
         }
-    }).catch(async (error) => {
-        const newAccessToken = await refreshTokens(req.user['username']);
-        req.headers.access_token = newAccessToken;
-        req.headers.changed = '1';
+    }
+    catch (error) {
+        console.log('token INVALID, refreshing');
+        if (error?.response?.status === 401) { // Token expired or unauthorized
+            try {
+                // create new token and changed headers of request 
+                const newAccessToken = await refreshTokens(req.user?.username);
+                // now store new access token to db
+                await tokens_model_js_1.default.findOneAndUpdate({ userid: String(req.user._id) }, { $set: { accessToken: newAccessToken } });
+            }
+            catch (innerError) {
+                console.error('inner error: ', innerError);
+                return res.status(500).json({ msg: 'Error refreshing access token in validateAccessToken', innerError });
+            }
+        }
+        else {
+            // either spotify / interal server issues
+            console.error(error);
+            return res.status(500).json({ msg: 'Error validating access token' });
+        }
         next();
-    });
+    }
 };
-// takes access_token, days in header, 
+//helper
+const extractTopData = (spotifyData) => {
+    // Extract top 5 artists
+    const topArtists = spotifyData.items.slice(0, 5).map(artist => ({
+        name: artist.name,
+        imageurl: artist.images[0].url
+    }));
+    // Extract genres, then filter out unique genres, and take top 5
+    const allGenres = spotifyData.items.flatMap(artist => artist.genres);
+    const uniqueGenres = Array.from(new Set(allGenres));
+    const topGenres = uniqueGenres.slice(0, 5);
+    return { topArtists, topGenres };
+};
+app.get('/has_linked_spotify', authenticateToken, async (req, res) => {
+    const userid = String(req.user._id);
+    if (!userid) {
+        return res.json({ msg: 'no userid was passed through the header' });
+    }
+    const query = await tokens_model_js_1.default.find({ userid: userid });
+    if (!query) {
+        return res.status(400).json({ msg: 'user not linked' });
+    }
+    return res.status(200).json({ msg: 'success' });
+});
+// takes days in header, and type in url 
 app.get('/top/:type', authenticateToken, validateAccessToken, async (req, res) => {
-    // Extract access token from request headers, and query type from url
-    const access_token = String(req.headers.access_token);
-    const type = String(req.params.type);
-    const days = String(req.headers.days);
-    // error checking variables
-    if (type != 'artists' && type != 'tracks') {
-        res.status(400).json({ msg: 'Invalid query type' });
-        return;
+    const { days } = req.headers;
+    const { type } = req.params;
+    let access_token;
+    try {
+        access_token = await getUserAccessToken(String(req.user._id));
     }
+    catch (error) {
+        return res.status(500).json({ msg: error });
+    }
+    const sendError = (status, message) => {
+        res.status(status).json({ msg: message });
+    };
+    // Validate type
+    if (!['artists', 'tracks'].includes(type)) {
+        return sendError(400, 'Invalid query type');
+    }
+    // Validate days
     if (!Number(days)) {
-        res.status(400).json({ msg: 'Days is missing or undefined' });
-        return;
+        return sendError(400, 'Days is missing or undefined');
     }
-    if (!access_token || access_token == 'undefined') {
-        res.status(401).json({ msg: 'Access token missing from request headers' });
-        return;
+    // Validate access token
+    if (!access_token || access_token === 'undefined') {
+        return sendError(401, 'Access token missing from request headers');
     }
     try {
-        // Request top artists from Spotify's API
-        const response = await request_promise_native_1.default.get(`https://api.spotify.com/v1/me/top/${type}?offset=${days}`, {
+        // Request top artists/tracks from Spotify's API
+        // const response = await axios.get(`https://api.spotify.com/v1/me/top/${type}?offset=${days}`, {
+        // const response = await axios.get(`https://api.spotify.com/v1/me/top/${type}?limit=${days}?offset=${0}`, {
+        const response = await axios_1.default.get(`https://api.spotify.com/v1/me/top/${type}?limit=${days}&offset=0`, {
             headers: {
                 Authorization: `Bearer ${access_token}`
             }
         });
-        if (req.headers.changed == '1') {
-            res.status(200).json({ msg: 'success', data: response, newToken: true, access_token: access_token });
-        }
-        else {
-            res.status(200).json({ msg: 'success', data: response });
-        }
+        const responseData = {
+            msg: 'success',
+            data: extractTopData(response.data),
+        };
+        res.status(200).json(responseData);
     }
     catch (error) {
-        console.log('error in spotify endpoint');
-        if (error?.statusCode == 401) {
-            console.log('access token ran out');
-            res.status(401).json({ msg: 'access token is not valid' });
+        console.error('Error in Spotify endpoint', error?.response?.status);
+        console.error(error);
+        if (error?.response?.status === 401) {
+            return sendError(401, 'Access token is not valid');
         }
-        else {
-            // Something happened in setting up the request and triggered an Error
-            // console.log('Error', error.message);
-            console.log('error here!!!!!!!!!!!!!', error.statusCode);
-            res.status(500).json({ msg: error });
-        }
+        return sendError(500, 'Error making request to Spotify');
     }
 });
 // ------------------------------ END ------------------------------  //

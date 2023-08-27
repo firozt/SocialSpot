@@ -2,14 +2,12 @@ import React, { useEffect, useState } from 'react'
 import { getUser } from '../LoginAuth'
 import User from '../interfaces/User'
 import { useNavigate } from 'react-router-dom'
-import axios, { AxiosResponse } from 'axios'
 import Following from '../Components/Following/Following'
-import { Box, Button, Center, Flex, HStack, Heading, Icon, Table, Tbody, Td, Text, Tr } from '@chakra-ui/react'
+import { Center, Flex, Table, Tbody, Td, Text, Tr } from '@chakra-ui/react'
 import Navbar from '../Components/Navbar/Navbar'
-import { FiCrosshair, FiDelete, FiX } from 'react-icons/fi'
-import UserDetails from '../Components/UserDetails/UserDetails'
 import FindFriends from '../Components/FindFriends/FindFriends'
 import AddPost from '../Components/AddPost/AddPost'
+import UserDetails from '../Components/UserDetails/UserDetails'
 
 
 type Props = {
@@ -20,13 +18,6 @@ type Props = {
 const ProfilePage: React.FC<Props> = ({isMobile}) => {
   const [user, setUser] = useState<User>()
   const [relogUser, setRelogUser] = useState<boolean>(false);
-  const [hasTokens, setHasTokens] = useState<boolean>(false);
-
-  const checkHasTokens = (): boolean => {
-    const tokenbool: boolean = !!(localStorage.getItem('atoken') && localStorage.getItem('rtoken'));
-    setHasTokens(tokenbool)
-    return tokenbool
-  }
 
   const navigate = useNavigate()
   // checks if user is logged in on page mount
