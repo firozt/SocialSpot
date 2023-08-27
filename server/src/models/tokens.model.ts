@@ -1,14 +1,11 @@
 import mongoose from 'mongoose';
-import User from '../interfaces/User';
-import UserTokens from '../interfaces/UserTokens';
+import UserTokensInterface from '../interfaces/UserTokens';
 
-// Define schema of Mongodb
-const UserTokens = new mongoose.Schema({
-    userid: { type: String, require: true, unique: true},
-    refreshToken: { type: String, require: false, unique: false},
-    accessToken: { type: String, require: false, unique: false},
-}, { collection: 'tokens'})
+const UserTokensSchema = new mongoose.Schema({
+    userid: { type: String, required: true, unique: true },
+    refreshToken: { type: String, required: false, unique: false },
+    accessToken: { type: String, required: false, unique: false },
+}, { collection: 'tokens' })
 
-const model = mongoose.model<UserTokens | Document>('UserTokens', UserTokens)
+const model = mongoose.model<UserTokensInterface & mongoose.Document>('UserTokens', UserTokensSchema);
 export default model;
-

@@ -28,32 +28,12 @@ type SpotifyResponse = {
 const temp_data: SpotifyExtractedData = {
 	topArtists: [
 		{
-			name: "Deftones",
+			name: "test artists",
 			imageurl: "https://i.scdn.co/image/ab6761610000e5eb4b2da0b72cab26ac518f1f0d"
-		},
-		{
-			name: "Mac DeMarco",
-			imageurl: "https://i.scdn.co/image/ab6761610000e5eb3cef7752073cbbd2cc04c6f0"
-		},
-		{
-			name: "Radiohead",
-			imageurl: "https://i.scdn.co/image/ab6761610000e5eba03696716c9ee605006047fd"
-		},
-		{
-			name: "slowthai",
-			imageurl: "https://i.scdn.co/image/ab6761610000e5ebd35231e23d5af811b8fdca7a"
-		},
-		{
-			name: "The Strokes",
-			imageurl: "https://i.scdn.co/image/ab6761610000e5ebcaea403b29f6a09260b6a18a"
 		},
 ],
 	topGenres: [
-		"alternative metal",
-		"nu metal",
-		"rap metal",
-		"rock",
-		"sacramento indie"
+		"Test genres"
 ]
 }
 
@@ -78,10 +58,10 @@ const AddPost: React.FC<Props> = ({user}) => {
 					setHasLinkedSpotify(true)
 					return true;
 				}
-				return false;
 			} catch (error: any) {
-				alert('check user spotify call is not working')
-				return false;
+			}
+			finally {
+				return false
 			}
 		}
 		CheckSpotifyLinked()

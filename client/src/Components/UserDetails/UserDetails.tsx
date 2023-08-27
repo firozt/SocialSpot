@@ -54,7 +54,6 @@ const UserDetails: React.FC<Props> = ({user, relogUser}) => {
 				}
 				return false;
 			} catch (error: any) {
-				alert('check user spotify call is not working')
 				return false;
 			}
 		}
@@ -107,6 +106,7 @@ const UserDetails: React.FC<Props> = ({user, relogUser}) => {
 								</Tr>
 							</Tbody>
 						</Table>
+						{String(hasLinkedSpotify)}
 					</>}
 					{
 						!hasLinkedSpotify?

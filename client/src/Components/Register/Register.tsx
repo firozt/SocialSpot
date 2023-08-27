@@ -27,13 +27,9 @@ const Register: React.FC<Props>= ({}) => {
     if (password == '') {
       errormsg += 'password is empty, '
     }
-    if (!spotifyLinked) {
-      errormsg += 'spotify must be linked'
-    }
     
     if (errormsg != '') {
       setMessage(errormsg)
-      return
     }
 
     // successfull inputs
@@ -103,7 +99,6 @@ const Register: React.FC<Props>= ({}) => {
           </InputRightElement>
         </InputGroup> 
         <Box>
-          <SpotifyLogin onSuccess={() => setSpotiftyLinked(true)}/>
           <Button 
           onClick={() => handleSubmit()} 
           width={'100%'}

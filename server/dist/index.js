@@ -346,11 +346,17 @@ app.get('/get_spotify_tokens', authenticateToken, async (req, res) => {
         const refresh_token = response.data.refresh_token;
         // Store refresh token + access token in db, as user is new we will need to create a new row
         const userid = String(req.user._id);
-        await tokens_model_js_1.default.create({
-            userid: userid,
-            refreshToken: refresh_token,
-            accessToken: access_token,
-        });
+        try {
+            await tokens_model_js_1.default.create({
+                userid: userid,
+                refreshToken: refresh_token,
+                accessToken: access_token,
+            });
+        }
+        catch (error) {
+            console.log('error in adding new refreshtoken + accesstoken for this user');
+            console.error(error);
+        }
         res.status(200).json({ msg: 'successfull' });
     }
     catch (error) {
@@ -474,7 +480,8 @@ app.get('/has_linked_spotify', authenticateToken, async (req, res) => {
     if (!userid) {
         return res.json({ msg: 'no userid was passed through the header' });
     }
-    const query = await tokens_model_js_1.default.find({ userid: userid });
+    const query = await tokens_model_js_1.default.findOne({ userid: userid });
+    console.log(query);
     if (!query) {
         return res.status(400).json({ msg: 'user not linked' });
     }

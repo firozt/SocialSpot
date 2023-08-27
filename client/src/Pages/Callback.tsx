@@ -1,13 +1,8 @@
-import axios, { AxiosResponse } from 'axios';
+import axios from 'axios';
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 type Props = {};
-
-interface SpotifyTokenResponse {
-  access_token: string,
-  refresh_token: string,
-}
 
 const Callback: React.FC<Props> = ({}) => {
   const navigate = useNavigate();
