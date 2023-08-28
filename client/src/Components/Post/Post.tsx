@@ -14,9 +14,10 @@ type SpotifyExtractedData = {
 type Props = {
 	username: string,
 	top_data: SpotifyExtractedData,
+	date: string
 }
 
-const Post: React.FC<Props> = ({username, top_data}) => {
+const Post: React.FC<Props> = ({username, top_data, date}) => {
 	const [comments, setComments] = useState<string[]>([]);
 
 	useEffect(() => {
@@ -27,11 +28,11 @@ const Post: React.FC<Props> = ({username, top_data}) => {
 	}, [])
 
   return (
-    <Box id='post-container' className='card' borderRadius={'30px'} maxW={'750px'} minH={'500px'} mb={10}>
+    <Box id='post-container' className='card' borderRadius={'30px'} maxW={'900px'} minW={'450px'} minH={'500px'} mb={10}>
 			<Flex align={'center'} >
 				<Icon as={FiUser} boxSize={'100px'} mr={2}/>
-				<Box w={'100%'}>
-					<Heading fontSize={'5xl'} textAlign={'center'}>{username}</Heading>
+				<Box w={'100%'} overflow={'hidden'}>
+					<Heading  fontSize={'5xl'} textAlign={'center'}>{username}</Heading>
 					<Divider m={2} borderColor={'gray.200'}/>
 				</Box>
 			</Flex>
@@ -91,7 +92,7 @@ const Post: React.FC<Props> = ({username, top_data}) => {
 					</Flex>
 				</Box>
 			</div>
-			<i>date</i>
+			<i>{date}</i>
 		</Box>
   )
 }

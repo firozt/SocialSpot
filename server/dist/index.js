@@ -6,13 +6,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const mongoose_1 = __importDefault(require("mongoose"));
 const cors_1 = __importDefault(require("cors"));
-const user_model_js_1 = __importDefault(require("./models/user.model.js"));
-const tokens_model_js_1 = __importDefault(require("./models/tokens.model.js"));
 const express_1 = __importDefault(require("express"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const mongodb_1 = require("mongodb");
 const dotenv_1 = __importDefault(require("dotenv"));
 const path_1 = __importDefault(require("path"));
 const axios_1 = __importDefault(require("axios"));
+const user_model_js_1 = __importDefault(require("./models/user.model.js"));
+const tokens_model_js_1 = __importDefault(require("./models/tokens.model.js"));
+const profile_model_js_1 = __importDefault(require("./models/profile.model.js"));
 dotenv_1.default.config({ path: path_1.default.resolve(__dirname, '../../.env') });
 // Setting up connections and middleware
 mongoose_1.default.connect('mongodb://localhost:27017/MernTest');
@@ -97,37 +99,44 @@ const usernameToUserId = async (username) => {
     }
     return query[0]['_id'];
 };
-const getFollowing = async (userId, res) => {
+const userIdtoUsername = async (userid) => {
+    let query;
+    try {
+        query = await user_model_js_1.default.findById(userid);
+        if (!query) {
+            throw new Error("User not found");
+        }
+        return query['username'];
+    }
+    catch (error) {
+        throw new Error("unable to query db");
+    }
+};
+const getFollowing = async (userId) => {
     let query;
     try {
         // find user making query
-        query = await user_model_js_1.default.find({ _id: userId });
+        query = await user_model_js_1.default.findById(userId);
+        if (!query) {
+            throw new Error('User not found in users collection');
+        }
+        // load user into var
+        const user = {
+            username: query['username'],
+            _id: query['_id'],
+            following: query['following'],
+        };
+        const followingList = [];
+        for (const userId of user['following']) {
+            const username = await userIdToUsername(userId);
+            followingList.push({ username: username, _id: new mongodb_1.ObjectId(userId) });
+        }
+        return followingList;
     }
     catch (error) {
         console.error(error);
-        res
-            .status(500)
-            .json({ msg: 'unable to fetch user database' });
         throw new Error('Unable to get following from users collection');
     }
-    if (query.length === 0) {
-        res
-            .status(404)
-            .json({ msg: 'user not found' });
-        throw new Error('User not found in users collection');
-    }
-    // load user into var
-    const user = {
-        username: query[0]['username'],
-        _id: query[0]['_id'],
-        following: query[0]['following'],
-    };
-    const followingList = [];
-    for (const userId of user['following']) {
-        const username = await userIdToUsername(userId);
-        followingList.push({ username: username, _id: user['_id'] });
-    }
-    return followingList;
 };
 // ------------------------- API ENDPOINTS -------------------------  //
 app.get('/', (req, res) => {
@@ -274,10 +283,16 @@ app.post('/unfollow/:username', authenticateToken, async (req, res) => {
     }
 });
 app.get('/following', authenticateToken, async (req, res) => {
-    const followingList = await getFollowing(String(req.user['_id']), res);
-    return res
-        .status(200)
-        .json({ msg: 'success', following: followingList });
+    try {
+        const followingList = await getFollowing(String(req.user['_id']));
+        return res
+            .status(200)
+            .json({ msg: 'success', following: followingList });
+    }
+    catch (error) {
+        console.error(error);
+        res.status(500).json({ msg: 'error' });
+    }
 });
 app.get('/search_users/:query', authenticateToken, async (req, res) => {
     const query = req.params.query;
@@ -301,12 +316,74 @@ app.get('/search_users/:query', authenticateToken, async (req, res) => {
         };
     });
     // get users following data, currently stored as ids, translate to usernames
-    const followingList = await getFollowing(String(req.user['_id']), res);
-    const notFollowing = queryOutput.filter((item1) => {
-        return (!followingList.some((item2) => item1.username === item2.username) &&
-            item1.username !== req.user.username);
-    });
-    return res.status(200).json({ msg: 'success', query: notFollowing });
+    try {
+        const followingList = await getFollowing(String(req.user['_id']));
+        const notFollowing = queryOutput.filter((item1) => {
+            return (!followingList.some((item2) => item1.username === item2.username) &&
+                item1.username !== req.user.username);
+        });
+        return res.status(200).json({ msg: 'success', query: notFollowing });
+    }
+    catch (error) {
+        console.error(error);
+        res.status(500).json({ msg: 'error' });
+    }
+});
+const getCurrentDateFormatted = () => {
+    const date = new Date();
+    const day = ("0" + date.getDate()).slice(-2);
+    const month = ("0" + (date.getMonth() + 1)).slice(-2);
+    const year = date.getFullYear().toString().slice(-2);
+    return `${day}/${month}/${year}`;
+};
+app.post('/update_user_profile', authenticateToken, async (req, res) => {
+    const data = req.body.data;
+    const userid = String(req.user._id);
+    console.log(data);
+    // error checking
+    if (!data) {
+        return res.status(400).json({ msg: 'no data has been presented in the body' });
+    }
+    try {
+        // to be inserted to db
+        const newData = {
+            date: getCurrentDateFormatted(),
+            userid: userid,
+            data: data,
+        };
+        // see if user already has an entry and replace / create it
+        const query = await profile_model_js_1.default.findOneAndUpdate({ userid: userid }, newData, { upsert: true, new: true });
+        res.status(200).json({ msg: 'success', query: query });
+    }
+    catch (error) {
+        res.status(500).json({ msg: 'error inserting into UserProfile collection' });
+    }
+});
+app.get('/following_data', authenticateToken, async (req, res) => {
+    const userid = String(req.user._id);
+    // get users following
+    try {
+        const following = await getFollowing(userid);
+        const profile_data = [];
+        console.log(following);
+        // search for each users profile data
+        for (const user of following) {
+            console.log(String(user._id));
+            let profile = await profile_model_js_1.default.findOne({ userid: String(user._id) });
+            if (profile) {
+                let modifiedProfile = profile.toObject();
+                modifiedProfile.username = user.username;
+                profile_data.push(modifiedProfile);
+            }
+        }
+        console.log('profile data:');
+        console.log(profile_data);
+        res.status(200).json(profile_data);
+    }
+    catch (error) {
+        console.error(error);
+        res.status(500).json({ msg: 'error in following data' });
+    }
 });
 // ---------------------------- SPOTIFY ----------------------------  //
 // asks user for spotify access
@@ -487,10 +564,11 @@ app.get('/has_linked_spotify', authenticateToken, async (req, res) => {
     }
     return res.status(200).json({ msg: 'success' });
 });
-// takes days in header, and type in url 
-app.get('/top/:type', authenticateToken, validateAccessToken, async (req, res) => {
+// takes days in header, and type in url , returns top artists 
+// TODO: ADD TOP TRACKS
+app.get('/spotify/top', authenticateToken, validateAccessToken, async (req, res) => {
     const { days } = req.headers;
-    const { type } = req.params;
+    const type = 'artists';
     let access_token;
     try {
         access_token = await getUserAccessToken(String(req.user._id));
@@ -514,9 +592,6 @@ app.get('/top/:type', authenticateToken, validateAccessToken, async (req, res) =
         return sendError(401, 'Access token missing from request headers');
     }
     try {
-        // Request top artists/tracks from Spotify's API
-        // const response = await axios.get(`https://api.spotify.com/v1/me/top/${type}?offset=${days}`, {
-        // const response = await axios.get(`https://api.spotify.com/v1/me/top/${type}?limit=${days}?offset=${0}`, {
         const response = await axios_1.default.get(`https://api.spotify.com/v1/me/top/${type}?limit=${days}&offset=0`, {
             headers: {
                 Authorization: `Bearer ${access_token}`

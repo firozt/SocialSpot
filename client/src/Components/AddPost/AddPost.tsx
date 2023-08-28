@@ -40,7 +40,6 @@ const temp_data: SpotifyExtractedData = {
 
 
 const AddPost: React.FC<Props> = ({user}) => {
-	const [type, setType] = useState<string>('');
 	const [timeFrame, setTimeFrame] = useState<string>('');
 	const [hasLinkedSpotify, setHasLinkedSpotify] = useState<boolean>(false);
 	const [showPreview, setShowPreview] = useState<boolean>(false);
@@ -69,21 +68,19 @@ const AddPost: React.FC<Props> = ({user}) => {
 
 
 	const handlePreview = async () => {
-		if (!type || !timeFrame) {
+		if (!timeFrame) {
 			alert('cannot leave empty')
 			return
 		}
 
 		const token: string = localStorage.getItem('token') || 'null'
-		const accessToken: string = localStorage.getItem('atoken') || 'null'
 		const days: number = timeFrame == 'month' ? 30 : 7
 		
 		try {
 			const response: AxiosResponse = await axios.get(
-				`http://127.0.0.1:3000/top/${type}`,{
+				`http://127.0.0.1:3000/spotify/top`,{
 					headers: {
 						Authorization: `Bearer ${token}`,
-						access_token: accessToken,
 						days: days
 					}
 				})
@@ -95,7 +92,23 @@ const AddPost: React.FC<Props> = ({user}) => {
 		}
 	}
 
-
+	const UpdateProfile = async () => {
+		try {
+			await axios.post(
+				'http://127.0.0.1:3000/update_user_profile',
+				{
+					data: userTopData
+				},
+				{
+					headers: {
+						Authorization: `Bearer ${localStorage.getItem('token')}`
+					}
+				}
+			)
+		} catch (error: any) {
+			alert('updating user profile went wrong')
+		}
+	}
 
 
 
@@ -114,22 +127,11 @@ const AddPost: React.FC<Props> = ({user}) => {
 				<>
 					<Center>
 						<Flex flexDirection={'column'} lineHeight={'2rem'} id='addPostSelection'>
-							<Box m={2} padding={2}>
-								<Flex>
-									<Box m={2}>
-										<Text fontSize={'3xl'} my={5}>Tracks or Artists</Text>
-										<Select
-										value={type} 
-										onChange={(event: React.ChangeEvent<HTMLSelectElement>) => setType(event.target.value)} 
-										variant={'filled'} 
-										bgColor={'gray.300'} 
-										color={'gray.500'} 
-										placeholder='Select option'
-										w={'100%'}>
-											<option value='tracks'>Tracks</option>
-											<option value='artists'>Artists</option>
-										</Select>
-									</Box>
+							<Box textAlign={'center'}>
+								<Text>Update your profile with your current listening stats</Text>
+								<Text>Last time you updated this was <i>example time</i></Text>
+							</Box>
+							<Box padding={2}>
 									<Box m={2}>
 										<Text w={'100%'} fontSize={'3xl'} my={5}>Week or Month</Text>
 										<Select 
@@ -144,7 +146,6 @@ const AddPost: React.FC<Props> = ({user}) => {
 											<option value='month'>Month</option>
 										</Select>
 									</Box>
-								</Flex>
 								<Center mt={5}>
 									<Button onClick={handlePreview} w={'100%'}>Preview</Button>
 								</Center>
@@ -154,7 +155,15 @@ const AddPost: React.FC<Props> = ({user}) => {
 				<Center>
 					{
 						showPreview?
-						<Post username={user.username} top_data={userTopData}/> :
+						<>
+							<VStack>
+								<Post date={'dd/mm/yy'} username={user.username} top_data={userTopData}/>
+								<Button 
+								height={'3rem'} 
+								w={'100%'}
+								onClick={UpdateProfile}>Update Profile With This Card</Button>
+							</VStack>
+						</>:
 						<></>
 					}
 				</Center>

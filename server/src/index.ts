@@ -1,21 +1,22 @@
 import bcrypt from 'bcrypt';
 import mongoose from 'mongoose';
 import cors from 'cors';
-import UserDB from './models/user.model.js';
-import UserTokensDB from './models/tokens.model.js'
 import express, {Request, Response, NextFunction} from 'express';
 import User from './interfaces/User.js'
 import jwt from 'jsonwebtoken';
+import { ObjectId } from 'mongodb';
 
 import dotenv from 'dotenv';
 import path from 'path'
-import request from 'request-promise-native';
 import axios from 'axios';
-import { error } from 'console';
 import SpotifyArtist from './interfaces/SpotifyMusic.js';
 import SpotifyExtractedData from './interfaces/SpotiftyData.js';
 import UserTokens from './interfaces/UserTokens.js';
 
+import UserDB from './models/user.model.js';
+import UserTokensDB from './models/tokens.model.js'
+import UserProfileDB from './models/profile.model.js'
+import UserProfile from './interfaces/UserProfile.js';
 
 
 // extends Requests interface with user attributes that i obtain from the jwt bearer token
@@ -129,40 +130,49 @@ const usernameToUserId = async (username: string): Promise<string> => {
 	return query[0]['_id']
 }
 
-const getFollowing = async (userId: string, res: Response): Promise<User[]>  => {
+const userIdtoUsername = async (userid: string): Promise<string> => {
 	let query: User[];
 	try {
+		query = await UserDB.findById(userid)
+		if (!query) {
+			throw new Error("User not found");
+		}
+		return query['username']
+
+	} catch (error) {
+		throw new Error("unable to query db");
+	}
+}
+
+const getFollowing = async (userId: string): Promise<User[]>  => {
+	let query: User;
+	try {
 		// find user making query
-		query = await UserDB.find({_id: userId})
+		query = await UserDB.findById(userId)
+
+		if (!query) {
+			throw new Error('User not found in users collection')
+		}
+		// load user into var
+		const user: User = {
+			username: query['username'],
+			_id: query['_id'],
+			following: query['following'],
+		}
+			
+		const followingList: User[] = []
+
+		for (const userId of user['following']) {
+			const username = await userIdToUsername(userId);
+			followingList.push({username: username, _id: new ObjectId(userId)});
+		}
+		return followingList
 	} catch (error) {
 		console.error(error)
-		res
-			.status(500)
-			.json({msg:'unable to fetch user database'})
 		throw new Error('Unable to get following from users collection')
 	}
-
-	if (query.length === 0) {
-		res
-			.status(404)
-			.json({msg:'user not found'})
-		throw new Error('User not found in users collection')
-	}
-	// load user into var
-	const user: User = {
-		username: query[0]['username'],
-		_id: query[0]['_id'],
-		following: query[0]['following'],
-	}
-		
-	const followingList: User[] = []
-
-	for (const userId of user['following']) {
-		const username = await userIdToUsername(userId);
-		followingList.push({username: username, _id: user['_id']});
-	}
-	return followingList
 }
+
 
 // ------------------------- API ENDPOINTS -------------------------  //
 
@@ -328,10 +338,15 @@ app.post('/unfollow/:username', authenticateToken , async (req: Request, res: Re
 })
 
 app.get('/following', authenticateToken , async (req: Request, res: Response) => {
-	const followingList: User[] = await getFollowing(String(req.user['_id']), res)
-	return res
-		.status(200)
-		.json({msg:'success', following:followingList})
+	try {
+		const followingList: User[] = await getFollowing(String(req.user['_id']))
+		return res
+			.status(200)
+			.json({msg:'success', following:followingList})
+	} catch (error) {
+		console.error(error)
+		res.status(500).json({msg:'error'})
+	}
 })
 
 app.get('/search_users/:query', authenticateToken, async (req: Request, res: Response) => {
@@ -357,17 +372,89 @@ app.get('/search_users/:query', authenticateToken, async (req: Request, res: Res
 		}
 	})
 	// get users following data, currently stored as ids, translate to usernames
+	try {
+		const followingList: User[] = await getFollowing(String(req.user['_id']))
+	
+		const notFollowing: User[] = queryOutput.filter((item1) => {
+			return (
+				!followingList.some((item2) => item1.username === item2.username) &&
+				item1.username !== req.user.username
+			);
+		});
+	
+		return res.status(200).json({msg:'success', query:notFollowing})
+	} catch (error) {
+		console.error(error)
+		res.status(500).json({msg:'error'})
+	}
+})
 
-	const followingList: User[] = await getFollowing(String(req.user['_id']), res)
+const getCurrentDateFormatted = (): string => {
+    const date = new Date();
+    const day = ("0" + date.getDate()).slice(-2);
+    const month = ("0" + (date.getMonth() + 1)).slice(-2);
+    const year = date.getFullYear().toString().slice(-2);
+    return `${day}/${month}/${year}`;
+}
 
-	const notFollowing: User[] = queryOutput.filter((item1) => {
-		return (
-			!followingList.some((item2) => item1.username === item2.username) &&
-			item1.username !== req.user.username
+app.post('/update_user_profile', authenticateToken , async (req: Request, res: Response) => {
+	const data: SpotifyExtractedData = req.body.data
+	const userid: string = String(req.user._id)
+	console.log(data)
+
+
+	// error checking
+	if (!data) {
+		return res.status(400).json({msg: 'no data has been presented in the body'})
+	}
+	try {
+
+		// to be inserted to db
+		const newData: UserProfile = {
+			date: getCurrentDateFormatted(),
+			userid: userid,
+			data: data,
+		}
+
+		// see if user already has an entry and replace / create it
+		const query: UserProfile  = await UserProfileDB.findOneAndUpdate(
+			{userid: userid}, 
+			newData, 
+			{ upsert: true, new: true }
 		);
-	});
+		res.status(200).json({msg:'success',query:query})
 
-	return res.status(200).json({msg:'success', query:notFollowing})
+	} catch (error: any) {
+		res.status(500).json({msg:'error inserting into UserProfile collection'})
+	}
+
+})
+
+app.get('/following_data', authenticateToken, async (req: Request, res: Response) => {
+	const userid: string = String(req.user._id);
+	// get users following
+	try {
+		const following: User[] = await getFollowing(userid)
+		const profile_data: UserProfile[] = []
+		console.log(following)	
+		// search for each users profile data
+		for (const user of following) {
+			console.log(String(user._id));
+			let profile = await UserProfileDB.findOne({userid: String(user._id)});
+			if (profile) {
+				let modifiedProfile = profile.toObject();
+				modifiedProfile.username = user.username;
+				profile_data.push(modifiedProfile);
+			}
+		}
+		
+		console.log('profile data:')
+		console.log(profile_data)
+		res.status(200).json(profile_data)
+	} catch (error) {
+		console.error(error)
+		res.status(500).json({msg:'error in following data'})
+	}
 })
 
 // ---------------------------- SPOTIFY ----------------------------  //
@@ -573,10 +660,11 @@ app.get('/has_linked_spotify', authenticateToken , async (req: Request, res: Res
 })
 
 
-// takes days in header, and type in url 
-app.get('/top/:type', authenticateToken, validateAccessToken, async (req: Request, res: Response) => {
+// takes days in header, and type in url , returns top artists 
+// TODO: ADD TOP TRACKS
+app.get('/spotify/top', authenticateToken, validateAccessToken, async (req: Request, res: Response) => {
     const { days } = req.headers;
-    const { type } = req.params;
+	const type = 'artists'
 	let access_token: string
 	try {
 		access_token = await getUserAccessToken(String(req.user._id))
@@ -603,9 +691,6 @@ app.get('/top/:type', authenticateToken, validateAccessToken, async (req: Reques
     }
 
     try {
-        // Request top artists/tracks from Spotify's API
-        // const response = await axios.get(`https://api.spotify.com/v1/me/top/${type}?offset=${days}`, {
-        // const response = await axios.get(`https://api.spotify.com/v1/me/top/${type}?limit=${days}?offset=${0}`, {
         const response = await axios.get(`https://api.spotify.com/v1/me/top/${type}?limit=${days}&offset=0`, {
             headers: {
                 Authorization: `Bearer ${access_token}`
