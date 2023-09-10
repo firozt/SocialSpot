@@ -15,7 +15,7 @@ User Dashboard: Personalized dashboard displaying the user's Spotify statistics 
 Search and Discover: Discover new friends on Spotify and search for specific users to connect with.
 Prerequisites
 
-#Before you begin, ensure you have met the following requirements:
+# Before you begin, ensure you have met the following requirements:
 
 Node.js and npm installed on your machine.
 MongoDB installed and running.
@@ -43,11 +43,11 @@ SPOTIFY_CLIENT_ID= YOUR SPOTIFY CLIENT ID
 SPOTIFY_CLIENT_SECRET= YOUR SPOTIFY CLIENT SECRET
 
 Start the server and client (in separate terminals):
-# Server
+-Server
 cd ../server
 npm start
 
-# Client
+-Client
 cd ../client
 npm start
 Open your browser and access the application at http://localhost:3000.
