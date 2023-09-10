@@ -44,14 +44,14 @@ Prerequisites
     + SPOTIFY_CLIENT_SECRET= YOUR SPOTIFY CLIENT SECRET
 
 4.  start the server and client (in separate terminals):
-  -Server
-  cd ../server
-  npm start
+  +  server
+  +  cd ../server
+  +  npm start
 
-  -Client
-  cd ../client
-  npm start
-  Open your browser and access the application at http://localhost:3000.
+  +  Client
+  +  cd ../client
+  +  npm start
+  +  Open your browser and access the application at http://localhost:3000.
 
 Usage
 Register and log in using your Spotify account.
