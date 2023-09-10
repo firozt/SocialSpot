@@ -60,27 +60,28 @@ Follow friends to see their Spotify statistics on your dashboard.
 Enjoy keeping up with your friends' music preferences and habits!
 Project Structure
 
-The project structure is organized as follows:
+# The project structure is organized as follows:
 
 server: Contains the Node.js/Express.js backend.
-client: Houses the React frontend.
-shared: Shared TypeScript types and utilities.
-Technologies Used
++ client: Houses the React frontend.
++ shared: Shared TypeScript types and utilities.
++ Technologies Used
 
 Frontend:
-React
-TypeScript
-Axios for API requests
-Redux for state management
-React Router for routing
-Material-UI for styling
-Backend:
-Node.js
-Express.js
-TypeScript
-MongoDB (Mongoose)
-Passport.js for authentication
++ React
++ TypeScript
++ Axios for API requests
++ React Router for routing
++ ChakraUI for styling
++ Backend:
++ Node.js
++ Express.js
++ TypeScript
++ MongoDB (Mongoose)
 Authentication:
-OAuth 2.0 with Spotify API
++ OAuth 2.0 with Spotify API
++ JWT tokens
++ BCrypt for storing passwords
++ Bearer Keys
 
 
