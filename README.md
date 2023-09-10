@@ -36,12 +36,12 @@ Prerequisites
 
 3.  Create a .env file in the server directory and add your Spotify API credentials:
 
-    CLIENT_URL=localhost
-    CLIENT_PORT=5173
-    API_URL=http://127.0.0.1
-    API_PORT=3000
-    SPOTIFY_CLIENT_ID= YOUR SPOTIFY CLIENT ID
-    SPOTIFY_CLIENT_SECRET= YOUR SPOTIFY CLIENT SECRET
+    + CLIENT_URL=localhost
+    + CLIENT_PORT=5173
+    + API_URL=http://127.0.0.1
+    + API_PORT=3000
+    + SPOTIFY_CLIENT_ID= YOUR SPOTIFY CLIENT ID
+    + SPOTIFY_CLIENT_SECRET= YOUR SPOTIFY CLIENT SECRET
 
 4.  start the server and client (in separate terminals):
   -Server
