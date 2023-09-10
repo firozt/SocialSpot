@@ -44,11 +44,12 @@ Prerequisites
     + SPOTIFY_CLIENT_SECRET= YOUR SPOTIFY CLIENT SECRET
 
 4.  start the server and client (in separate terminals):
-  Server
+   
+  - In Server
   +  cd ../server
   +  npm start
 
-  Client
+  - In Client
   +  cd ../client
   +  npm start
   +  Open your browser and access the application at http://localhost:3000.
