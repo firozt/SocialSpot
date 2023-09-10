@@ -17,40 +17,41 @@ Prerequisites
 
 # Before you begin, ensure you have met the following requirements:
 
-Node.js and npm installed on your machine.
-MongoDB installed and running.
-Spotify Developer API credentials for authentication and data retrieval.
-Installation
+1. Node.js and npm installed on your machine.
+2. MongoDB installed and running.
+3. Spotify Developer API credentials for authentication and data retrieval.
 
-Clone the repository:
-git clone https://github.com/firozt/socialSpot
-cd socialSpot
-Install server dependencies:
-cd server
-npm install
+# Installation
 
-Install client dependencies:
-cd ../client
-npm install
+1. Clone the repository:
+  git clone https://github.com/firozt/socialSpot
+  cd socialSpot
+  Install server dependencies:
+  cd server
+  npm install
 
-Create a .env file in the server directory and add your Spotify API credentials:
+2. Install client dependencies:
+  cd ../client
+  npm install
 
-CLIENT_URL=localhost
-CLIENT_PORT=5173
-API_URL=http://127.0.0.1
-API_PORT=3000
-SPOTIFY_CLIENT_ID= YOUR SPOTIFY CLIENT ID
-SPOTIFY_CLIENT_SECRET= YOUR SPOTIFY CLIENT SECRET
+3.  Create a .env file in the server directory and add your Spotify API credentials:
 
-Start the server and client (in separate terminals):
--Server
-cd ../server
-npm start
+    CLIENT_URL=localhost
+    CLIENT_PORT=5173
+    API_URL=http://127.0.0.1
+    API_PORT=3000
+    SPOTIFY_CLIENT_ID= YOUR SPOTIFY CLIENT ID
+    SPOTIFY_CLIENT_SECRET= YOUR SPOTIFY CLIENT SECRET
 
--Client
-cd ../client
-npm start
-Open your browser and access the application at http://localhost:3000.
+4.  start the server and client (in separate terminals):
+  -Server
+  cd ../server
+  npm start
+
+  -Client
+  cd ../client
+  npm start
+  Open your browser and access the application at http://localhost:3000.
 
 Usage
 Register and log in using your Spotify account.
